@@ -1,0 +1,448 @@
+DTL (Data Transformation Language)
+==================================
+
+
+
+
+Competing Tools
+---------------
+
+### Trifecta
+
+> Data Transformation Platform.
+> It has intuitive distribution charts, auto-generated scripts, machine learning for suggestion of data cleanup and transformation.
+
+Proprietary
+Online
+
+
+### Easy Data Transform
+
+> Data transformation software for Windows and Mac. Merge, dedupe, clean and reformat your data without programming.
+
+
+  - No-code
+  - Proprietary
+  - Windows/Mac (JVM?)
+
+
+### KNIME
+
+> Knime is a java open-source, cross-platform application which name means "Konstanz Information Miner".
+> It is actually used extensively for data mining, data analysis and optimization.
+> It can be downloaded as the core application itself (Knime Desktop), or the whole SDK which is based on Eclipse Helios.
+
+
+
+### Talend
+> Talend leverages the open source model to make data integration available to all types of organizations, regardless of their size, level of expertise or budgetary constraints.
+> Talend’s solutions connect to all source and target systems and they can be downloaded at no cost.
+> Talend also offers data quality solutions, fully complementary to its data integration solutions.
+
+
+### Reshap.XL
+> Data Wrangling Tool for Excel. Simple and effective way to process your data in Excel.
+
+
+### Data Wrangler
+> Wrangler is an interactive tool for data cleaning and transformation.
+
+Discontinued.  Replaced by Trifecta.
+
+
+### Omniscope
+> Filter, analyse and edit information in interactive point-and-click graphs, charts and maps, import web content, and create slider-driven models.
+
+
+### Phiona
+> Phiona is a no-code platform that enables anyone to work with data without knowing SQL or Python.
+
+### WinPure
+> WinPure Clean & Match is the #1 rated data cleansing and data matching software suite rolled into one powerful, affordable and easy-to-use application.
+
+Tags:
+  - Proprietary
+  - Windows
+
+### Advanced ETL Processor
+> Enables non-technical staff to perform complex data transformations and automate everyday tasks.
+> It has more than 500 transformation functions and works with: Text, XML, Excel, Access, DBF, Foxpro, Paradox, ODBC, OLE DB, MS SQL Server, Oracle, MySql, MariaDB, PostgreSQL, Greenplum, Firebird, Interbase, SQLite, POP3, IMAP4, SMTP, HL7, HTTP, FTP/SFTP, Cloud storage, RSS, Logs, Google Spreadsheets, SalesForce, Tableau, Qlik and much more
+
+
+### Pentaho
+> Pentaho is a Business Intelligence software company that offers Pentaho Business Analytics, a suite of open source products which provide data integration, OLAP services, reporting, dashboarding, data mining and ETL capabilities.
+
+### EasyMorph
+> The task of data transformation is traditionally believed to belong to IT developers while business users are typically left with Excel, or cumbersome Visual Basic and Python scripting.
+> Although there have been attempts to create easy-to-use so-called data preparation utilities, such utilities are suitable only for very simple cases.
+> At the same time enterprise Extract-Transform-Load (ETL) systems while powerful (and very expensive) are prohibitively difficult for a non-IT audience, as they simply are not designed for it.
+> EasyMorph employs a novel approach that combines simplicity similar to that of data preparation utilities and the power typical for professional ETL systems.
+> It allows business users to design rather complex data transformations without using SQL or scripts, while data experts enjoy simpler and faster ETL development.
+
+
+### Xplenty
+> Xplenty’s cloud-based, easy-to-use, data integration service makes it easy to move, process and transform more data, faster, reducing preparation time so businesses can unlock insights quickly.
+> With an intuitive drag-and-drop interface it’s a zero-coding experience.
+> Xplenty processes both structured and unstructured data and integrates with a variety of sources, including Amazon Redshift, SQL data stores, NoSQL databases and cloud storage services.
+
+
+Competing Languages
+-------------------
+
+### SQL
+
+### D (data language specification)
+
+### .QL
+
+
+### Python
+Pandas
+numpy
+
+### KNIME
+
+ETL platforms
+-------------
+
+### Apache Spark
+
+
+### Apache Airflow
+
+
+### n8n.io
+> n8n is an extendable workflow automation tool which enables you to connect anything to everything via its open, fair-code model.
+
+### RunDeck
+> RunDeck is an open source automation service with a web console, command line tools and a WebAPI.
+> It lets you easily run automation tasks across a set of nodes.
+
+
+### StackStorm
+> StackStorm is a powerful open-source automation platform that wires together all of your apps, services and workflows.
+> It’s extendable, flexible, and built with love for DevOps and ChatOps.
+
+### Shipyard App
+> Shipyard is a cloud-based workflow automation platform that removes complexity and increases visibility of automation efforts.
+> It empowers Data Teams to focus on launching, monitoring, and sharing their business solutions without the need for DevOps.
+
+### CloudReactor
+> CloudReactor makes it incredibly easy for engineers to deploy, orchestrate, monitor and manage data pipelines in the cloud.
+
+### Luigi
+> Luigi is a Python module that helps you build complex pipelines of batch jobs. It handles dependency resolution, workflow management, visualization etc. It also comes with Hadoop support built in.
+
+
+### Prefect
+> Prefect is a new workflow management system, designed for modern infrastructure and powered by the open-source Prefect Core workflow engine.
+> Users organize Tasks into Flows, and Prefect takes care of the rest.
+
+
+
+Naming conventions
+------------------
+Keywords are always upper case single words.
+Types are always camel case, starting with an upper case character.
+Enum variants are always screaming snake case.
+Variables are always kebab case.
+
+
+
+Typing of inputs
+----------------
+Should the type declaration for inputs be in the script, provided by the runtime, or both?
+
+
+Tracing
+-------
+
+
+### Option 1
+Operations form a DAG.
+Each operation defines a "Primary" input.
+The primary inputs of each operation form a "Spine" from each output to a single, primary input.
+
+### Option 2
+Levels of dependency between cells:
+  0: No dependency.
+  1: Indirect dependency
+  2: Secondary dependency
+  3: Primary dependency
+
+
+Each operation returns a mask for each combination of input and output. (per column?)
+
+
+
+Result:
+  - Output table
+  - List of inputs:
+    - Input reference
+    - Dependency matrix
+
+
+Matrix types:
+  - Null (all no dependency)
+  - All of one type
+  - Direct (input row index and output row index are the same)
+  - One-to-one
+  - Sparse
+  - Dense
+
+
+
+
+Order of evaluation
+-------------------
+
+Should we evaluate each column independently, or try to do all at the same time.
+
+Independently might allow use of vectorised implementations of some operations.
+It might also help branch prediction.
+It makes no-op copies much easier.
+
+
+Concurrently allows the predicate to be evaluated once for each row without caching.  It enables a streaming implementation.
+
+
+
+
+
+
+
+Prototypes
+----------
+
+Python.  End-to-end.  Show input rows from spine next to resulting output rows.
+
+
+
+
+Other
+----
+
+
+
+
+
+
+### Labelling of stages
+
+    DO 'Deduplicate line items'
+    UPDATE line-items SELECT  * WHERE
+
+
+
+
+
+Specifications:
+  - Language syntax and semantics.
+  - Trace format.
+  - OO API.
+  - CLI.
+
+
+
+
+
+
+Layers:
+  - Execution engine.
+  - GUI.
+
+
+Phases:
+  - Transformations.
+  - Valdations.
+
+
+UPDATE should be able to change type of columns.
+
+Fundamental problem is naming of versions of variables.
+
+
+Why is it different from SQL?
+  - Table are not persisted.
+  - Queries don't have to interact with queries from a different thread.
+  - DTL programs are type-checked ahead of time.
+  - No imperative updates.  Updates done by querying to create new table that replaces old binding.
+
+
+Back-propogation of errors?
+
+
+Debug queries:
+  - Which rows were dropped?
+  - Which rows merged?
+  - Which rows were left unchanged?
+  - Which rows were mutated (and how)?
+
+
+
+Workflow:
+  - Run.
+  - Look at result.
+  - Optionally pin the result, preventing it from being flushed.
+
+
+A run consists of:
+  - A _single_ source file.
+  - References to all inputs.
+  - References to all outputs.
+  - (if in debug mode) Detailed trace information.
+
+
+Options:
+  - Disable tracing.
+  - Set cache directory.
+
+
+
+
+
+A source file is compiled into a set of steps.
+
+
+
+
+
+
+
+
+  - A (COW) dump of all inputs.
+
+
+
+
+
+
+
+def snap_dates():
+    lookup_table = {}
+    for row in rows:
+        key = (row.legal_entity_id, year(row.period_end_date), month(row.period_end_date))
+
+
+
+
+
+`SELECT ... FROM ...` is replaced with `FROM ... SELECT ...`
+`UPDATE table-name` is shorthand for `BIND table-name FROM table-name`
+
+
+
+Operations
+----------
+
+### Declaring inputs
+
+
+### Declaring outputs
+Do we want to do this?
+
+### Declaring types
+
+### Creating a new table
+
+
+### Updating an existing table
+
+
+
+
+
+### Filtering
+
+
+### Deduplicating
+
+### Selecting the best rows
+
+### Merging rows
+
+### Concatenating
+
+
+
+
+
+
+
+Samples
+-------
+
+DECLARE INPUT CONSTANT threshold Float;
+
+
+DECLARE INPUT TABLE line-items (
+
+)
+
+DECLARE INPUT TABLE mnemonic-mapping (
+    client-mnemonic Text,
+    internal-mnemonic Text,
+)
+
+
+// Replace NULLs with zeroes.
+UPDATE line-items SET value
+
+
+
+// Filter NULLs.
+UPDATE line-items
+
+
+
+// Cast statement type to enum.  Drop bad rows.
+ENUM StatementType (
+    BALANCE_SHEET,
+    INCOME_STATEMENT,
+    CASH_FLOW,
+);
+
+UPDATE line-items
+SELECT *, (
+  FROM statement-type-mapping AS mapping
+  SELECT mapping.statement-type
+  WHERE mapping.name = statement-type
+) StatementType
+WHERE statement-type in statement-type-mapping
+
+
+DECLARE TABLE line-items FROM line-items SELECT *,
+
+
+// Assertions.
+ASSERT
+
+
+
+// Select max day in each month from two different columns
+DECLARE TABLE last-day
+FROM line-items
+SELECT YEAR(start-date), MONTH(start-date), MAX(DAY(start-date))
+GROUP BY YEAR(start-date), MONTH(start-date)
+
+UNION ALL
+SLECT
+
+
+
+
+DECLARE OUTPUT line-items
+
+
+
+// Map mnemonics
+
+UPDATE line-items
+SELECT *, mapping.on-mnemonic as mnemonic
+JOIN mapping ON mapping.client-mnemonic = mnemonic
+
+
+
+
+
+
