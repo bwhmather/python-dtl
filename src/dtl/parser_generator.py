@@ -1,6 +1,6 @@
 import dataclasses
 import typing
-from typing import List, Union
+from typing import Annotated, List, Union, Optional
 
 import lalr
 
@@ -83,6 +83,9 @@ def _create_empty_instance(cls):
     if _is_list_type(cls):
         return []
 
+    if _is_optional_type(cls):
+        return None
+
     if dataclasses.is_dataclass(cls):
         kwargs = {
             field.name: _create_empty_instance(field.type)
@@ -91,14 +94,6 @@ def _create_empty_instance(cls):
         return cls(**kwargs)
 
     raise NotImplementedError(f"can't create empty instance for {cls}")
-
-
-def _reduce_first(node):
-    return [node]
-
-
-def _reduce_subsequent(prev, node):
-    return prev + [node]
 
 
 class UniqueQueue:
@@ -156,7 +151,9 @@ class Parser:
                 token_symbol=self._token_symbol,
                 token_value=self._token_value,
             )
-        except lalr.exceptions.ParseError as exc:
+        except lalr.exceptions.ParseError:
+            from pprint import pprint
+            pprint(list(self._grammar._productions))
             raise
 
 
@@ -172,6 +169,7 @@ class ParserGenerator:
         production = lalr.Production(cls, pattern)
         self._productions.append(production)
         self._actions[production] = action
+        print(production)
         return production
 
     def register(self, cls, pattern, **actions):
@@ -239,27 +237,63 @@ class ParserGenerator:
         for production in self._productions:
             for symbol in production.symbols:
                 if _is_list_type(symbol):
-                    (cls,) = symbol.__args__
-                    _appears_in_list.add(cls)
+                    _appears_in_list.add(
+                        (_list_item_type(symbol), _list_delimiter(symbol))
+                    )
 
-        for cls in _appears_in_list:
-            self._add_production(List[cls], (cls,), action=_reduce_first)
-            self._add_production(
-                List[cls], (List[cls], cls), action=_reduce_subsequent
-            )
+        for cls, delimiter in _appears_in_list:
+            if delimiter:
 
-    def _create_empty_variants(self):
-        _appears_in_list = set()
+                def _reduce_first(node):
+                    return [node]
+
+                def _reduce_subsequent(prev, delimiter, node):
+                    return prev + [node]
+
+                name = Annotated[List[cls], Delimiter(delimiter)]
+                self._add_production(name, (cls,), action=_reduce_first)
+                self._add_production(
+                    name, (name, delimiter, cls), action=_reduce_subsequent
+                )
+
+            else:
+
+                def _reduce_first(node):
+                    return [node]
+
+                def _reduce_subsequent(prev, node):
+                    return prev + [node]
+
+                name = List[cls]
+                self._add_production(name, (cls,), action=_reduce_first)
+                self._add_production(
+                    name, (name, cls), action=_reduce_subsequent
+                )
+
+    def _create_optional_productions(self):
+        appears_in_optional = set()
+
         for production in self._productions:
             for symbol in production.symbols:
-                if _is_list_type(symbol):
-                    (cls,) = symbol.__args__
-                    # TODO surely this should be the production name?
-                    _appears_in_list.add(cls)
+                if _is_optional_type(symbol):
+                    appears_in_optional.add(_optional_item_type(symbol))
 
-        empty_queue = UniqueQueue(List[cls] for cls in _appears_in_list)
+        print(appears_in_optional)
+        assert appears_in_optional
 
-        # Add list symbols to the empty queue.
+
+        for cls in appears_in_optional:
+            self._add_production(Optional[cls], (cls,), action=lambda value: value)
+
+        assert False
+
+    def _create_empty_variants(self):
+        empty_queue = UniqueQueue()
+
+        for production in self._productions:
+            for symbol in production.symbols:
+                if _is_list_type(symbol) or _is_optional_type(symbol):
+                    empty_queue.push(symbol)
 
         while empty_queue:
             empty_symbol = empty_queue.pop()
@@ -300,7 +334,7 @@ class ParserGenerator:
                             expand_queue.push(new_production)
 
     def parser(self, *, target):
-        self._create_list_productions()
         self._create_empty_variants()
-
+        self._create_list_productions()
+        self._create_optional_productions()
         return Parser(self._productions, target=target, actions=self._actions)
