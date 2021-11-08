@@ -69,6 +69,10 @@ class Distinct(Token):
     pass
 
 
+class Consecutive(Token):
+    pass
+
+
 class As(Token):
     pass
 
@@ -86,6 +90,14 @@ class On(Token):
 
 
 class Where(Token):
+    pass
+
+
+class Group(Token):
+    pass
+
+
+class By(Token):
     pass
 
 

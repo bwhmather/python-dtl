@@ -1,27 +1,82 @@
 import dataclasses
 import typing
-from typing import List
+from typing import List, Union
 
 import lalr
 
 
-def _is_list_type(cls):
-    if cls is list:
-        return True
+@dataclasses.dataclass(frozen=True)
+class Delimiter:
+    delimiter: typing.Any
 
-    # TODO change to types.GenericAlias in python39.
-    if not isinstance(cls, typing._GenericAlias):
+
+def _is_list_type(cls):
+    while hasattr(cls, "__origin__"):
+        cls = cls.__origin__
+
+    return cls is list
+
+
+def _list_item_type(cls):
+    assert _is_list_type(cls)
+    while cls.__origin__ != list:
+        cls = cls.__origin__
+
+    return cls.__args__[0]
+
+
+def _list_delimiter(cls):
+    assert _is_list_type(cls)
+    if not hasattr(cls, "__metadata__"):
+        return None
+
+    for tag in cls.__metadata__:
+        if not isinstance(tag, Delimiter):
+            continue
+        return tag.delimiter
+
+    return None
+
+
+def _is_optional_type(cls):
+    if typing.get_origin(cls) is not Union:
         return False
 
-    if cls.__origin__ is not list:
+    if type(None) not in typing.get_args(cls):
         return False
 
     return True
 
 
-def _list_item_type(cls):
-    assert _is_list_type(cls)
-    return cls.__args__[0]
+def _optional_item_type(cls):
+    assert _is_optional_type(cls)
+    variants = tuple(
+        variant
+        for variant in typing.get_args(cls)
+        if variant is not type(None)
+    )
+    if len(variants) == 1:
+        return variants[0]
+    return Union[(*variants,)]
+
+
+def _is_subclass(cls, base):
+    if _is_list_type(cls) or _is_list_type(base):
+        if not _is_list_type(cls) or not _is_list_type(base):
+            return False
+
+        return issubclass(_list_item_type(cls), _list_item_type(base))
+
+    if _is_optional_type(base):
+        base = _optional_item_type(base)
+
+        if _is_optional_type(cls):
+            cls = _optional_item_type(cls)
+
+    if _is_optional_type(cls):
+        return False
+
+    return issubclass(cls, base)
 
 
 def _create_empty_instance(cls):
@@ -102,7 +157,6 @@ class Parser:
                 token_value=self._token_value,
             )
         except lalr.exceptions.ParseError as exc:
-            print(exc)
             raise
 
 
@@ -127,7 +181,14 @@ class ParserGenerator:
             raise TypeError(f"{cls} is not a subclass of {self.node_type}")
 
         for term in pattern:
-            term_type = _list_item_type(term) if _is_list_type(term) else term
+            if _is_list_type(term):
+                term_type = _list_item_type(term)
+            elif _is_optional_type(term):
+                term_type = _optional_item_type(term)
+            else:
+                term_type = term
+
+            print(repr(term_type))
             if not issubclass(term_type, (self.node_type, self.token_type)):
                 raise TypeError(
                     f"{term_type} is not a subclass of {self.node_type} or {self.token_type}"
@@ -150,8 +211,12 @@ class ParserGenerator:
             if field.name in actions:
                 continue
 
-            while pattern_type is not field.type:
-                index, pattern_type = next(pattern_iter)
+            while not _is_subclass(pattern_type, field.type):
+                try:
+                    index, pattern_type = next(pattern_iter)
+                except StopIteration:
+                    raise Exception(f"No binding found for {field.name!r}")
+
             names[index] = field.name
         names = tuple(names)
 
@@ -189,6 +254,7 @@ class ParserGenerator:
             for symbol in production.symbols:
                 if _is_list_type(symbol):
                     (cls,) = symbol.__args__
+                    # TODO surely this should be the production name?
                     _appears_in_list.add(cls)
 
         empty_queue = UniqueQueue(List[cls] for cls in _appears_in_list)

@@ -1,3 +1,5 @@
+from typing import Iterator, Type
+
 import dtl.tokens as t
 
 _KEYWORD_TOKEN_CLASSES = {
@@ -5,6 +7,7 @@ _KEYWORD_TOKEN_CLASSES = {
     "UPDATE": t.Update,
     "SELECT": t.Select,
     "DISTINCT": t.Distinct,
+    "CONSECUTIVE": t.Consecutive,
     "AS": t.As,
     "FROM": t.From,
     "JOIN": t.Join,
@@ -13,11 +16,11 @@ _KEYWORD_TOKEN_CLASSES = {
 }
 
 
-def _is_whitespace(c):
+def _is_whitespace(c: str) -> bool:
     return c in (" ", "\n", "\t")
 
 
-def _is_id_start(c):
+def _is_id_start(c: str) -> bool:
     if "a" <= c <= "z":
         return True
     if "A" <= c <= "Z":
@@ -27,7 +30,7 @@ def _is_id_start(c):
     return False
 
 
-def _is_id_continue(c):
+def _is_id_continue(c: str) -> bool:
     if c is None:
         return False
     if "a" <= c <= "z":
@@ -44,20 +47,18 @@ def _is_id_continue(c):
 
 
 class _Tokenizer:
-    def __init__(self, string):
+    def __init__(self, string: str):
         self._string = string
         self._cursor = 0
         self._lineno = 0
         self._column = 0
 
-    def _peek(self):
-        if len(self._string) <= self._cursor:
-            return None
+    def _peek(self) -> str:
+        assert len(self._string) > self._cursor
         return self._string[self._cursor]
 
-    def _bump(self):
-        if len(self._string) <= self._cursor:
-            return None
+    def _bump(self) -> str:
+        assert len(self._string) > self._cursor
         if self._string[self._cursor] == "\n":
             self._lineno += 1
             self._column = 0
@@ -65,7 +66,7 @@ class _Tokenizer:
         self._column += 1
         return self._string[self._cursor - 1]
 
-    def _next_class(self):
+    def _next_class(self) -> Type[t.Token]:
         curr = self._bump()
 
         if _is_whitespace(curr):
@@ -236,7 +237,7 @@ class _Tokenizer:
 
         return t.Unknown
 
-    def next_token(self):
+    def next_token(self) -> t.Token:
         start = t.Location(
             offset=self._cursor, lineno=self._lineno, column=self._column
         )
@@ -251,11 +252,11 @@ class _Tokenizer:
             text=self._string[start.offset : end.offset], start=start, end=end
         )
 
-    def is_eof(self):
+    def is_eof(self) -> bool:
         return self._cursor >= len(self._string)
 
 
-def tokenize(string):
+def tokenize(string: str) -> Iterator[t.Token]:
     tokenizer = _Tokenizer(string)
 
     while not tokenizer.is_eof():

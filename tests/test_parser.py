@@ -16,4 +16,6 @@ def _parse_statement(string):
 def test_select_one_column():
     statement = _parse_statement("SELECT column FROM table")
 
-    assert isinstance(statement, n.SelectStatement)
+    assert isinstance(
+        statement, n.ExpressionStatement(expression=n.SelectExpression)
+    )
