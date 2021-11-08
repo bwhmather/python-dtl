@@ -1,0 +1,18 @@
+# Exclude everything by default.  Require individual files to be whitelisted.
+global-exclude *
+
+# Include python files.
+include setup.py
+recursive-include src *.py
+
+# Include type annotation stub files.
+include src/dtl/py.typed
+recursive-include src *.pyi
+
+# Include coniguration files.
+include setup.cfg
+include pyproject.toml
+include mypy.ini
+
+# Include documentation.
+include README.rst LICENSE
