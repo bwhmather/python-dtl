@@ -1,6 +1,7 @@
 DTL (Data Transformation Language)
 ==================================
 
+Explainable language for cleaning tabular data.
 
 
 
@@ -90,8 +91,21 @@ Competing Languages
 -------------------
 
 ### SQL
+Differences:
+  - Tables in DTL have a fixed order.
+  - Tables in DTL are immutable.
+
+
 
 ### D (data language specification)
+
+
+### Apache Pig
+
+Similar language, but makes different tradeoffs.
+Intended for configuring large map reduce jobs.
+
+
 
 ### .QL
 
@@ -208,6 +222,11 @@ Concurrently allows the predicate to be evaluated once for each row without cach
 
 
 
+IDE
+---
+
+First column: source code, fixed width.
+Subsequent columns: tables showing data at selected lines within the code.
 
 
 
@@ -273,7 +292,11 @@ Back-propogation of errors?
 
 
 Debug queries:
-  - Which rows were dropped?
+  - Which rows were dropped from the input?
+  - Which input rows resulted in a particular output row?
+  - How does the output from this run compare to the output from a previous run?
+
+
   - Which rows merged?
   - Which rows were left unchanged?
   - Which rows were mutated (and how)?
@@ -335,6 +358,41 @@ def snap_dates():
 Operations
 ----------
 
+
+LOAD * FROM ...
+LOAD
+
+
+SELECT ... FROM
+
+
+
+
+
+
+GROUP table BY pattern
+GROUP CONSECUTIVE table BY pattern
+
+
+DISTINCT table
+DISTINCT CONSECUTIVE table
+
+
+FILTER table WHERE condition
+
+
+
+JOIN table BY ..., table by ...
+
+SELECT a.value, b.value FROM JOIN table AS a ON key, table AS b ON key
+
+SELECT a.value, b.value
+FROM table AS a
+JOIN table AS b ON a.key = b.key
+JOIN table as c ON a.key = c.key
+
+
+
 ### Declaring inputs
 
 
@@ -366,11 +424,18 @@ Do we want to do this?
 
 
 
+Column Operations
+-----------------
+
+Mask(column, bitmask)
+Reorder(column, order)
+Group(column
 
 
 
 Samples
 -------
+
 
 DECLARE INPUT CONSTANT threshold Float;
 
