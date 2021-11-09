@@ -1,6 +1,6 @@
 import dataclasses
 import typing
-from typing import Annotated, List, Union, Optional
+from typing import Annotated, List, Optional, Union
 
 import lalr
 
@@ -125,6 +125,7 @@ class UniqueQueue:
 
 class Parser:
     def __init__(self, productions, *, target, actions):
+        self._productions = productions
         self._grammar = lalr.Grammar(productions)
         self._parse_table = lalr.ParseTable(self._grammar, target)
         self._actions = actions
@@ -152,9 +153,40 @@ class Parser:
                 token_value=self._token_value,
             )
         except lalr.exceptions.ParseError:
-            from pprint import pprint
-            pprint(list(self._grammar._productions))
+            print(self)
+            # from pprint import pprint
+            # pprint(list(self._grammar._productions))
             raise
+
+    def __str__(self):
+        def _symbol_repr(symbol):
+            if _is_list_type(symbol):
+                item_type = _symbol_repr(_list_item_type(symbol))
+                delimiter = _symbol_repr(_list_delimiter(symbol))
+                if delimiter:
+                    return f"List[{item_type}, delimiter={delimiter}]"
+                else:
+                    return f"List[{item_type}]"
+
+            if _is_optional_type(symbol):
+                item_type = _optional_item_type(symbol).__name__
+                return f"Optional[{item_type}]"
+
+            return symbol.__name__
+
+        import io
+
+        buff = io.StringIO()
+        for production in self._productions:
+            buff.write(_symbol_repr(production.name))
+            buff.write(" => ")
+            buff.write(
+                ", ".join(
+                    _symbol_repr(symbol) for symbol in production.symbols
+                )
+            )
+            buff.write("\n")
+        return buff.getvalue()
 
 
 class ParserGenerator:
@@ -278,14 +310,10 @@ class ParserGenerator:
                 if _is_optional_type(symbol):
                     appears_in_optional.add(_optional_item_type(symbol))
 
-        print(appears_in_optional)
-        assert appears_in_optional
-
-
         for cls in appears_in_optional:
-            self._add_production(Optional[cls], (cls,), action=lambda value: value)
-
-        assert False
+            self._add_production(
+                Optional[cls], (cls,), action=lambda value: value
+            )
 
     def _create_empty_variants(self):
         empty_queue = UniqueQueue()

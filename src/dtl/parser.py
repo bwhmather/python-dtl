@@ -11,13 +11,22 @@ def _reduce_ident(token: t.Name) -> str:
     return token.text
 
 
-_generator.register(n.BeginStatement, [t.Begin, t.String])
-
 _generator.register(n.TableName, [t.Name], name=lambda token: token.text)
 
 _generator.register(n.TableExpr, [n.TableName])
 
-_generator.register(n.ColumnName, [t.Name], name=lambda token: token.text)
+
+_generator.register(
+    n.UnqualifiedColumnName, [t.Name], column_name=lambda token: token.text
+)
+
+_generator.register(
+    n.QualifiedColumnName,
+    [t.Name, t.Dot, t.Name],
+    table_name=lambda table, _, column: table.text,
+    column_name=lambda table, _, column: column.text,
+)
+
 
 _generator.register(n.ColumnExpr, [n.ColumnName])
 
@@ -34,7 +43,7 @@ _generator.register(n.WhereClause, [t.Where, n.ColumnExpr])
 
 _generator.register(
     n.GroupByClause,
-    [t.Group, t.By, Annotated[List[n.ColumnExpr], Delimiter(",")]],
+    [t.Group, t.By, Annotated[List[n.ColumnExpr], Delimiter(t.Comma)]],
     consecutive=lambda *_: False,
 )
 _generator.register(
@@ -43,7 +52,7 @@ _generator.register(
         t.Group,
         t.Consecutive,
         t.By,
-        Annotated[List[n.ColumnExpr], Delimiter(",")],
+        Annotated[List[n.ColumnExpr], Delimiter(t.Comma)],
     ],
     consecutive=lambda *_: True,
 )
@@ -53,17 +62,20 @@ _generator.register(
     [
         t.Select,
         Optional[n.DistinctClause],
-        Annotated[List[n.ColumnExpr], Delimiter(",")],
+        Annotated[List[n.ColumnExpr], Delimiter(t.Comma)],
         n.FromClause,
-        Annotated[List[n.JoinClause], Delimiter(", ")],
+        Annotated[List[n.JoinClause], Delimiter(t.Comma)],
         Optional[n.WhereClause],
         Optional[n.GroupByClause],
     ],
 )
 
+_generator.register(n.AssignmentStatement, [n.TableName, t.Eq, n.Expression])
+_generator.register(n.ExpressionStatement, [n.Expression])
+
 
 _generator.register(
-    n.StatementList, [Annotated[List[n.Statement], Delimiter(";")]]
+    n.StatementList, [Annotated[List[n.Statement], Delimiter(t.Semicolon)]]
 )
 _parser = _generator.parser(target=n.StatementList)
 

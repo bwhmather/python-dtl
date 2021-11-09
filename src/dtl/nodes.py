@@ -36,6 +36,7 @@ class TableExpr(Node):
     """
 
     expr: Node
+    alias: Optional[str]
 
 
 class ColumnExpr(Node):

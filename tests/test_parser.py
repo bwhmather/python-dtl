@@ -16,6 +16,12 @@ def _parse_statement(string):
 def test_select_one_column():
     statement = _parse_statement("SELECT column FROM table")
 
-    assert isinstance(
-        statement, n.ExpressionStatement(expression=n.SelectExpression)
+    assert statement == n.ExpressionStatement(
+        expression=n.SelectExpression(
+            columns=[n.UnqualifiedColumnName("column")],
+            source=n.FromClause(n.TableName("table")),
+            join=[],
+            where=None,
+            group_by=None,
+        )
     )

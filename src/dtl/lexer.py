@@ -1,4 +1,4 @@
-from typing import Iterator, Type
+from typing import Iterator, Optional, Type
 
 import dtl.tokens as t
 
@@ -53,12 +53,13 @@ class _Tokenizer:
         self._lineno = 0
         self._column = 0
 
-    def _peek(self) -> str:
-        assert len(self._string) > self._cursor
+    def _peek(self) -> Optional[str]:
+        if self._cursor >= len(self._string):
+            return None
         return self._string[self._cursor]
 
     def _bump(self) -> str:
-        assert len(self._string) > self._cursor
+        assert self._cursor < len(self._string)
         if self._string[self._cursor] == "\n":
             self._lineno += 1
             self._column = 0
