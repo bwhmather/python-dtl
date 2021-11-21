@@ -70,7 +70,7 @@ class SubqueryExpr(TableExpr):
 
 @dataclass(frozen=True)
 class TableRefExpr(TableExpr):
-    source: TableName
+    name: TableName
 
 
 # === Distinct =================================================================
@@ -95,6 +95,7 @@ class DistinctClause(Node):
 # === Column Bindings ==========================================================
 
 
+@dataclass(frozen=True)
 class ColumnBinding(Node):
     """ """
 
@@ -105,6 +106,7 @@ class ColumnBinding(Node):
 # === From =====================================================================
 
 
+@dataclass(frozen=True)
 class TableBinding(Node):
     expression: TableExpr
     alias: Optional[TableName]

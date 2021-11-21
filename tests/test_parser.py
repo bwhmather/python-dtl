@@ -18,8 +18,21 @@ def test_select_one_column():
 
     assert statement == n.ExpressionStatement(
         expression=n.SelectExpression(
-            columns=[n.UnqualifiedColumnName("column")],
-            source=n.FromClause(n.TableName("table")),
+            distinct=None,
+            columns=[
+                n.ColumnBinding(
+                    expression=n.ColumnRefExpr(
+                        name=n.UnqualifiedColumnName("column")
+                    ),
+                    alias=None,
+                )
+            ],
+            source=n.FromClause(
+                n.TableBinding(
+                    expression=n.TableRefExpr(name=n.TableName("table")),
+                    alias=None,
+                )
+            ),
             join=[],
             where=None,
             group_by=None,

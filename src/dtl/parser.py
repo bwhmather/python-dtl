@@ -28,7 +28,8 @@ _generator.register(
     column_name=lambda table, _, column: column.text,
 )
 
-_generator.register(n.ColumnExpr, [n.ColumnName])
+_generator.register(n.ColumnRefExpr, [n.ColumnName])
+
 
 # === Tables ===================================================================
 
@@ -50,6 +51,11 @@ _generator.register(
 )
 
 # === Column Bindings ==========================================================
+
+_generator.register(n.ColumnBinding, [n.ColumnExpr], alias=lambda *_: None)
+_generator.register(
+    n.ColumnBinding, [n.ColumnExpr, t.As, n.UnqualifiedColumnName]
+)
 
 # === From =====================================================================
 

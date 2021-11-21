@@ -256,16 +256,6 @@ class ParserGenerator:
                     f"{term_type} is not a subclass of {self.node_type} or {self.token_type}"
                 )
 
-        # Add productions to automatically cast sub classes to their super class.
-        for base_cls in cls.__bases__:
-            if (
-                issubclass(base_cls, self.node_type)
-                and base_cls is not self.node_type
-            ):
-                self._add_production(
-                    base_cls, (cls,), action=lambda node: node
-                )
-
         pattern_iter = iter(enumerate(pattern))
         names = [None] * len(pattern)
         index, pattern_type = next(pattern_iter)
@@ -295,6 +285,33 @@ class ParserGenerator:
             return cls(**kwargs)
 
         self._add_production(cls, pattern, action=_action)
+
+    def _create_superclass_productions(self):
+        """
+        Add productions to automatically cast sub classes to their super class.
+        """
+        subclasses = UniqueQueue()
+        for production in self._productions:
+            cls = production.name
+            if _is_list_type(cls):
+                continue
+            if _is_optional_type(cls):
+                cls = _optional_item_type(cls)
+            subclasses.push(cls)
+
+        def _upcast(node):
+            print(f"upcasting {node}")
+            return node
+
+        while subclasses:
+            subcls = subclasses.pop()
+            for supercls in subcls.__bases__:
+                if not issubclass(supercls, self.node_type):
+                    continue
+                if supercls is self.node_type:
+                    continue
+                self._add_production(supercls, (subcls,), action=_upcast)
+                subclasses.push(supercls)
 
     def _create_list_productions(self):
         _appears_in_list = set()
@@ -394,6 +411,7 @@ class ParserGenerator:
                             expand_queue.push(new_production)
 
     def parser(self, *, target):
+        self._create_superclass_productions()
         self._create_empty_variants()
         self._create_list_productions()
         self._create_optional_productions()
