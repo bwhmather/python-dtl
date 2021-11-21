@@ -1,3 +1,5 @@
+# from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -9,9 +11,11 @@ class Node:
     pass
 
 
-@dataclass(frozen=True)
-class TableName(Node):
-    name: str
+class Expression(Node):
+    pass
+
+
+# === Columns ==================================================================
 
 
 class ColumnName(Node):
@@ -27,16 +31,6 @@ class UnqualifiedColumnName(ColumnName):
 class QualifiedColumnName(ColumnName):
     table_name: str
     column_name: str
-
-
-@dataclass(frozen=True)
-class TableExpr(Node):
-    """
-    An expression which evaluates to a table.
-    """
-
-    expr: Node
-    alias: Optional[str]
 
 
 class ColumnExpr(Node):
@@ -55,6 +49,74 @@ class ColumnRefExpr(ColumnExpr):
     """
 
     name: ColumnName
+
+
+# === Tables ===================================================================
+
+
+@dataclass(frozen=True)
+class TableName(Node):
+    name: str
+
+
+class TableExpr(Node):
+    pass
+
+
+@dataclass(frozen=True)
+class SubqueryExpr(TableExpr):
+    source: Expression
+
+
+@dataclass(frozen=True)
+class TableRefExpr(TableExpr):
+    source: TableName
+
+
+# === Distinct =================================================================
+
+
+@dataclass(frozen=True)
+class DistinctClause(Node):
+    """
+    For example:
+
+    ...python::
+
+        DISTINCT CONSECUTIVE
+    """
+
+    #: If false, all matching rows after the first occurence of a pattern should
+    #: be dropped, regardless of where they appear in the table.  If true, only
+    #: matching rows that appear immediately after each other should be droppe.
+    consecutive: bool
+
+
+# === Column Bindings ==========================================================
+
+
+class ColumnBinding(Node):
+    """ """
+
+    expression: ColumnExpr
+    alias: Optional[UnqualifiedColumnName]
+
+
+# === From =====================================================================
+
+
+class TableBinding(Node):
+    expression: TableExpr
+    alias: Optional[TableName]
+
+
+@dataclass(frozen=True)
+class FromClause(Node):
+    # TODO: SQL allows the from clause to be optional.
+    source: TableBinding
+
+
+# === Joins ====================================================================
 
 
 class JoinConstraint(Node):
@@ -95,36 +157,22 @@ class JoinUsingConstraint(JoinConstraint):
 
 
 @dataclass(frozen=True)
-class DistinctClause(Node):
-    """
-    For example:
-
-    ...python:: DISTINCT CONSECUTIVE
-    """
-
-    #: If false, all matching rows after the first occurence of a pattern should
-    #: be dropped, regardless of where they appear in the table.  If true, only
-    #: matching rows that appear immediately after each other should be droppe.
-    consecutive: bool
-
-
-@dataclass(frozen=True)
-class FromClause(Node):
-    # TODO: SQL allows the from clause to be optional.
-    source: TableExpr
-
-
-@dataclass(frozen=True)
 class JoinClause(Node):
-    table: TableExpr
+    table: TableBinding
     # Note that, because DTL lacks explicit indexes and foreign keys, the
     # constraint is not optional.
     constraint: JoinConstraint
 
 
+# === Filtering ================================================================
+
+
 @dataclass(frozen=True)
 class WhereClause(Node):
     predicate: Optional[ColumnExpr]
+
+
+# === Grouping =================================================================
 
 
 @dataclass(frozen=True)
@@ -144,17 +192,20 @@ class GroupByClause(Node):
     pattern: List[ColumnExpr]
 
 
-class Expression(Node):
-    pass
+# === Expressions ==============================================================
 
 
 @dataclass(frozen=True)
 class SelectExpression(Expression):
-    columns: List[ColumnExpr]
+    distinct: Optional[DistinctClause]
+    columns: List[ColumnBinding]
     source: FromClause
     join: List[JoinClause]
     where: Optional[WhereClause]
     group_by: Optional[GroupByClause]
+
+
+# === Statements ===============================================================
 
 
 class Statement(Node):

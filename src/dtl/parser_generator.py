@@ -10,6 +10,10 @@ class Delimiter:
     delimiter: typing.Any
 
 
+class ParseError(Exception):
+    pass
+
+
 def _is_list_type(cls):
     while hasattr(cls, "__origin__"):
         cls = cls.__origin__
@@ -76,7 +80,11 @@ def _is_subclass(cls, base):
     if _is_optional_type(cls):
         return False
 
-    return issubclass(cls, base)
+    try:
+        return issubclass(cls, base)
+    except TypeError:
+        print(f"{cls!r}, {base!r}")
+        raise
 
 
 def _create_empty_instance(cls):
@@ -123,6 +131,26 @@ class UniqueQueue:
         return len(self.__list) - self.__cursor
 
 
+def _describe(symbol):
+    if _is_optional_type(symbol):
+        cls = _optional_item_type(symbol)
+    elif _is_list_type(symbol):
+        cls = _list_item_type(symbol)
+    else:
+        cls = symbol
+
+    return cls.__name__
+
+
+def _or_list(values):
+    # Values may not be sortable so we convert to strings first.
+    names = sorted(str(value) for value in values)
+    if len(names) > 1:
+        return ", ".join(names[:-1]) + " or " + names[-1]
+    else:
+        return names[0]
+
+
 class Parser:
     def __init__(self, productions, *, target, actions):
         self._productions = productions
@@ -152,11 +180,15 @@ class Parser:
                 token_symbol=self._token_symbol,
                 token_value=self._token_value,
             )
-        except lalr.exceptions.ParseError:
+        except lalr.exceptions.ParseError as exc:
             print(self)
-            # from pprint import pprint
-            # pprint(list(self._grammar._productions))
-            raise
+            lookahead_token = exc.lookahead_token
+            expected_symbols = exc.expected_symbols
+
+            raise ParseError(
+                f"expected {_or_list(_describe(sym) for sym in expected_symbols)} "
+                f"before {lookahead_token if lookahead_token is not None else 'EOF'}"
+            ) from exc
 
     def __str__(self):
         def _symbol_repr(symbol):
