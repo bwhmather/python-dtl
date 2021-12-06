@@ -14,6 +14,9 @@ class Token:
     start: Location
     end: Location
 
+    def __repr__(self):
+        return f"t.{type(self).__name__}({self.text!r})"
+
 
 # --- Literals ---
 

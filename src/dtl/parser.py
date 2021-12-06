@@ -4,15 +4,39 @@ import dtl.nodes as n
 import dtl.tokens as t
 from dtl.parser_generator import Delimiter, ParserGenerator
 
-_generator = ParserGenerator(node_type=n.Node, token_type=t.Token)
+
+def _tokens(node):
+    if isinstance(node, list):
+        for item in node:
+            yield from _tokens(item)
+        return
+
+    if isinstance(node, t.Token):
+        yield node
+        return
+
+    if isinstance(node, n.Node):
+        yield from node.tokens
+        return
+
+    if node is None:
+        return
+
+    raise AssertionError(f"node {node!r} has no tokens")
 
 
-class ParseError(Exception):
-    pass
+def _tokens_action(*args):
+    tokens = []
+    for arg in args:
+        tokens += _tokens(arg)
+    return tokens
 
 
-def _reduce_ident(token: t.Name) -> str:
-    return token.text
+_generator = ParserGenerator(
+    node_type=n.Node,
+    token_type=t.Token,
+    default_actions=dict(tokens=_tokens_action),
+)
 
 
 # === Columns ==================================================================

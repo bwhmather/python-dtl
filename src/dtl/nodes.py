@@ -1,6 +1,6 @@
 # from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 
 import dtl.tokens as t
@@ -8,7 +8,7 @@ import dtl.tokens as t
 
 @dataclass(frozen=True)
 class Node:
-    pass
+    tokens: List[t.Token] = field(repr=False, compare=False)
 
 
 class Expression(Node):

@@ -222,9 +222,10 @@ class Parser:
 
 
 class ParserGenerator:
-    def __init__(self, *, token_type, node_type):
+    def __init__(self, *, token_type, node_type, default_actions):
         self.token_type = token_type
         self.node_type = node_type
+        self._default_actions = default_actions
 
         self._productions = []
         self._actions = {}
@@ -256,6 +257,7 @@ class ParserGenerator:
                     f"{term_type} is not a subclass of {self.node_type} or {self.token_type}"
                 )
 
+        actions = {**self._default_actions, **actions}
         pattern_iter = iter(enumerate(pattern))
         names = [None] * len(pattern)
         index, pattern_type = next(pattern_iter)
@@ -299,10 +301,6 @@ class ParserGenerator:
                 cls = _optional_item_type(cls)
             subclasses.push(cls)
 
-        def _upcast(node):
-            print(f"upcasting {node}")
-            return node
-
         while subclasses:
             subcls = subclasses.pop()
             for supercls in subcls.__bases__:
@@ -310,7 +308,9 @@ class ParserGenerator:
                     continue
                 if supercls is self.node_type:
                     continue
-                self._add_production(supercls, (subcls,), action=_upcast)
+                self._add_production(
+                    supercls, (subcls,), action=lambda node: node
+                )
                 subclasses.push(supercls)
 
     def _create_list_productions(self):
