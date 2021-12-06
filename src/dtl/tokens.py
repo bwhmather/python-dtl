@@ -1,11 +1,6 @@
 from dataclasses import dataclass
 
-
-@dataclass(frozen=True)
-class Location:
-    offset: int
-    lineno: int
-    column: int
+from dtl.types import Location
 
 
 @dataclass(frozen=True)

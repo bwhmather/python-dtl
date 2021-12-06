@@ -5,37 +5,66 @@ import dtl.tokens as t
 from dtl.parser_generator import Delimiter, ParserGenerator
 
 
-def _tokens(node):
+def _start(node):
     if isinstance(node, list):
         for item in node:
-            yield from _tokens(item)
-        return
+            start = _start(item)
+            if start:
+                return start
+        return None
 
     if isinstance(node, t.Token):
-        yield node
-        return
+        return node.start
 
     if isinstance(node, n.Node):
-        yield from node.tokens
-        return
+        return node.start
 
     if node is None:
-        return
+        return None
 
-    raise AssertionError(f"node {node!r} has no tokens")
+    raise AssertionError(f"node {node!r} has no start")
 
 
-def _tokens_action(*args):
-    tokens = []
+def _start_action(*args):
     for arg in args:
-        tokens += _tokens(arg)
-    return tokens
+        start = _start(arg)
+        if start:
+            return start
+    return None
+
+
+def _end(node):
+    if isinstance(node, list):
+        for item in reversed(node):
+            end = _end(item)
+            if end:
+                return end
+        return None
+
+    if isinstance(node, t.Token):
+        return node.end
+
+    if isinstance(node, n.Node):
+        return node.end
+
+    if node is None:
+        return None
+
+    raise AssertionError(f"node {node!r} has no end")
+
+
+def _end_action(*args):
+    for arg in reversed(args):
+        end = _end(arg)
+        if end:
+            return end
+    return None
 
 
 _generator = ParserGenerator(
     node_type=n.Node,
     token_type=t.Token,
-    default_actions=dict(tokens=_tokens_action),
+    default_actions=dict(start=_start_action, end=_end_action),
 )
 
 

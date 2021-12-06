@@ -1,14 +1,16 @@
 # from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Optional
 
 import dtl.tokens as t
+from dtl.types import Location
 
 
 @dataclass(frozen=True)
 class Node:
-    tokens: List[t.Token] = field(repr=False, compare=False)
+    start: Location
+    end: Location
 
 
 class Expression(Node):
