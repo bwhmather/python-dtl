@@ -14,14 +14,14 @@ class ParseError(Exception):
     pass
 
 
-def _is_list_type(cls):
+def _is_list_type(cls: type) -> bool:
     while hasattr(cls, "__origin__"):
         cls = cls.__origin__
 
     return cls is list
 
 
-def _list_item_type(cls):
+def _list_item_type(cls: type) -> bool:
     assert _is_list_type(cls)
     while cls.__origin__ != list:
         cls = cls.__origin__
@@ -29,7 +29,7 @@ def _list_item_type(cls):
     return cls.__args__[0]
 
 
-def _list_delimiter(cls):
+def _list_delimiter(cls: type) -> Optional[str]:
     assert _is_list_type(cls)
     if not hasattr(cls, "__metadata__"):
         return None
@@ -42,7 +42,7 @@ def _list_delimiter(cls):
     return None
 
 
-def _is_optional_type(cls):
+def _is_optional_type(cls: type) -> bool:
     if typing.get_origin(cls) is not Union:
         return False
 
@@ -52,7 +52,7 @@ def _is_optional_type(cls):
     return True
 
 
-def _optional_item_type(cls):
+def _optional_item_type(cls: type) -> type:
     assert _is_optional_type(cls)
     variants = tuple(
         variant
@@ -64,7 +64,7 @@ def _optional_item_type(cls):
     return Union[(*variants,)]
 
 
-def _is_subclass(cls, base):
+def _is_subclass(cls: type, base: type) -> bool:
     if _is_list_type(cls) or _is_list_type(base):
         if not _is_list_type(cls) or not _is_list_type(base):
             return False
