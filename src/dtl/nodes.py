@@ -13,7 +13,7 @@ class Node:
     end: Location
 
 
-class Expression(Node):
+class TableExpression(Node):
     pass
 
 
@@ -35,7 +35,7 @@ class QualifiedColumnName(ColumnName):
     column_name: str
 
 
-class ColumnExpr(Node):
+class Expression(Node):
     """
     An expression which can be evaluated one rwo group at a time to give the
     cells of a column.
@@ -45,7 +45,7 @@ class ColumnExpr(Node):
 
 
 @dataclass(frozen=True)
-class ColumnRefExpr(ColumnExpr):
+class ColumnRefExpr(Expression):
     """
     A reference, by name, to a single column.
     """
@@ -67,7 +67,7 @@ class TableExpr(Node):
 
 @dataclass(frozen=True)
 class SubqueryExpr(TableExpr):
-    source: Expression
+    source: TableExpression
 
 
 @dataclass(frozen=True)
@@ -101,7 +101,7 @@ class DistinctClause(Node):
 class ColumnBinding(Node):
     """ """
 
-    expression: ColumnExpr
+    expression: Expression
     alias: Optional[UnqualifiedColumnName]
 
 
@@ -141,7 +141,7 @@ class JoinOnConstraint(JoinConstraint):
         ON joined_table.a = root_table.b
     """
 
-    predicate: ColumnExpr
+    predicate: Expression
 
 
 @dataclass(frozen=True)
@@ -173,7 +173,7 @@ class JoinClause(Node):
 
 @dataclass(frozen=True)
 class WhereClause(Node):
-    predicate: Optional[ColumnExpr]
+    predicate: Optional[Expression]
 
 
 # === Grouping =================================================================
@@ -193,14 +193,13 @@ class GroupByClause(Node):
     #: be grouped, regardless of where they appear in the table.  If true, only
     #: matching rows that appear immediately after each other should be grouped.
     consecutive: bool
-    pattern: List[ColumnExpr]
+    pattern: List[Expression]
 
 
-# === Expressions ==============================================================
-
+# === Table Expressions ==============================================================
 
 @dataclass(frozen=True)
-class SelectExpression(Expression):
+class SelectExpression(TableExpression):
     distinct: Optional[DistinctClause]
     columns: List[ColumnBinding]
     source: FromClause
@@ -219,12 +218,12 @@ class Statement(Node):
 @dataclass(frozen=True)
 class AssignmentStatement(Statement):
     target: TableName
-    expression: Expression
+    expression: TableExpression
 
 
 @dataclass(frozen=True)
 class ExpressionStatement(Statement):
-    expression: Expression
+    expression: TableExpression
 
 
 @dataclass(frozen=True)

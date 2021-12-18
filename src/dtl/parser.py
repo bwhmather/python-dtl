@@ -105,9 +105,9 @@ _generator.register(
 
 # === Column Bindings ==========================================================
 
-_generator.register(n.ColumnBinding, [n.ColumnExpr], alias=lambda *_: None)
+_generator.register(n.ColumnBinding, [n.Expression], alias=lambda *_: None)
 _generator.register(
-    n.ColumnBinding, [n.ColumnExpr, t.As, n.UnqualifiedColumnName]
+    n.ColumnBinding, [n.Expression, t.As, n.UnqualifiedColumnName]
 )
 
 # === From =====================================================================
@@ -126,12 +126,12 @@ _generator.register(n.FromClause, [t.From, n.TableBinding])
 
 _generator.register(n.JoinClause, [t.Join, n.TableBinding, n.JoinConstraint])
 
-_generator.register(n.JoinOnConstraint, [t.On, n.ColumnExpr])
+_generator.register(n.JoinOnConstraint, [t.On, n.Expression])
 
 
 # === Filtering ================================================================
 
-_generator.register(n.WhereClause, [t.Where, n.ColumnExpr])
+_generator.register(n.WhereClause, [t.Where, n.Expression])
 
 
 # === Grouping =================================================================
@@ -139,7 +139,7 @@ _generator.register(n.WhereClause, [t.Where, n.ColumnExpr])
 
 _generator.register(
     n.GroupByClause,
-    [t.Group, t.By, Annotated[List[n.ColumnExpr], Delimiter(t.Comma)]],
+    [t.Group, t.By, Annotated[List[n.Expression], Delimiter(t.Comma)]],
     consecutive=lambda *_: False,
 )
 _generator.register(
@@ -148,12 +148,12 @@ _generator.register(
         t.Group,
         t.Consecutive,
         t.By,
-        Annotated[List[n.ColumnExpr], Delimiter(t.Comma)],
+        Annotated[List[n.Expression], Delimiter(t.Comma)],
     ],
     consecutive=lambda *_: True,
 )
 
-# === Expressions ==============================================================
+# === TableExpressions ==============================================================
 
 _generator.register(
     n.SelectExpression,
@@ -171,8 +171,10 @@ _generator.register(
 
 # === Statements ===============================================================
 
-_generator.register(n.AssignmentStatement, [n.TableName, t.Eq, n.Expression])
-_generator.register(n.ExpressionStatement, [n.Expression])
+_generator.register(
+    n.AssignmentStatement, [n.TableName, t.Eq, n.TableExpression]
+)
+_generator.register(n.ExpressionStatement, [n.TableExpression])
 
 
 _generator.register(
