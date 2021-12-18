@@ -174,7 +174,6 @@ _generator.register(
 _generator.register(
     n.AssignmentStatement, [n.TableName, t.Eq, n.TableExpression]
 )
-_generator.register(n.ExpressionStatement, [n.TableExpression])
 
 
 _generator.register(

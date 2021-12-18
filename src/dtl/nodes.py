@@ -198,6 +198,7 @@ class GroupByClause(Node):
 
 # === Table Expressions ==============================================================
 
+
 @dataclass(frozen=True)
 class SelectExpression(TableExpression):
     distinct: Optional[DistinctClause]
@@ -218,11 +219,6 @@ class Statement(Node):
 @dataclass(frozen=True)
 class AssignmentStatement(Statement):
     target: TableName
-    expression: TableExpression
-
-
-@dataclass(frozen=True)
-class ExpressionStatement(Statement):
     expression: TableExpression
 
 
