@@ -1,6 +1,6 @@
 import dataclasses
 import typing
-from typing import Annotated, List, Optional, Union
+from typing import Annotated, List, Optional, Union, get_type_hints
 
 import lalr
 
@@ -261,11 +261,15 @@ class ParserGenerator:
         pattern_iter = iter(enumerate(pattern))
         names = [None] * len(pattern)
         index, pattern_type = next(pattern_iter)
-        for field in dataclasses.fields(cls):
+
+        fields = dataclasses.fields(cls)
+        hints = get_type_hints(cls, globalns=None, localns=None)
+
+        for field in fields:
             if field.name in actions:
                 continue
 
-            while not _is_subclass(pattern_type, field.type):
+            while not _is_subclass(pattern_type, hints[field.name]):
                 try:
                     index, pattern_type = next(pattern_iter)
                 except StopIteration:

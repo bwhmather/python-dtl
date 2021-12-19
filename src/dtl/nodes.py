@@ -1,4 +1,4 @@
-# from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import List, Optional
@@ -11,10 +11,6 @@ from dtl.types import Location
 class Node:
     start: Location
     end: Location
-
-
-class TableExpression(Node):
-    pass
 
 
 # === Columns ==================================================================
@@ -199,6 +195,10 @@ class GroupByClause(Node):
 # === Table Expressions ==============================================================
 
 
+class TableExpression(Node):
+    pass
+
+
 @dataclass(frozen=True)
 class SelectExpression(TableExpression):
     distinct: Optional[DistinctClause]
@@ -207,6 +207,11 @@ class SelectExpression(TableExpression):
     join: List[JoinClause]
     where: Optional[WhereClause]
     group_by: Optional[GroupByClause]
+
+
+@dataclass(frozen=True)
+class ImportExpression(TableExpression):
+    location: t.String
 
 
 # === Statements ===============================================================
