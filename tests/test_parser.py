@@ -1,3 +1,5 @@
+import functools
+
 from dtl import lexer
 from dtl import nodes as n
 from dtl import parser
@@ -21,69 +23,61 @@ class L:
         return NotImplemented
 
 
+class NodeModuleWrapper:
+    def __getattr__(self, name):
+        node_cls = getattr(n, name)
+
+        @functools.wraps(node_cls)
+        def wrapper(**kwargs):
+            kwargs.setdefault("start", L())
+            kwargs.setdefault("end", L())
+            return node_cls(**kwargs)
+
+        return wrapper
+
+
+nw = NodeModuleWrapper()
+
+
 def test_assign_select():
     statement = _parse_statement(
         "variable = SELECT column_a, column_b FROM table"
     )
 
-    assert statement == n.AssignmentStatement(
-        target=n.TableName(name="variable", start=L(), end=L()),
-        expression=n.SelectExpression(
+    assert statement == nw.AssignmentStatement(
+        target=nw.TableName(name="variable", end=L()),
+        expression=nw.SelectExpression(
             distinct=None,
             columns=[
-                n.ColumnBinding(
-                    expression=n.ColumnRefExpr(
-                        name=n.UnqualifiedColumnName(
+                nw.ColumnBinding(
+                    expression=nw.ColumnRefExpr(
+                        name=nw.UnqualifiedColumnName(
                             column_name="column_a",
-                            start=L(),
-                            end=L(),
                         ),
-                        start=L(),
-                        end=L(),
                     ),
                     alias=None,
-                    start=L(),
-                    end=L(),
                 ),
-                n.ColumnBinding(
-                    expression=n.ColumnRefExpr(
-                        name=n.UnqualifiedColumnName(
+                nw.ColumnBinding(
+                    expression=nw.ColumnRefExpr(
+                        name=nw.UnqualifiedColumnName(
                             column_name="column_b",
-                            start=L(),
-                            end=L(),
                         ),
-                        start=L(),
-                        end=L(),
                     ),
                     alias=None,
-                    start=L(),
-                    end=L(),
                 ),
             ],
-            source=n.FromClause(
-                source=n.TableBinding(
-                    expression=n.TableRefExpr(
-                        name=n.TableName(
+            source=nw.FromClause(
+                source=nw.TableBinding(
+                    expression=nw.TableRefExpr(
+                        name=nw.TableName(
                             name="table",
-                            start=L(),
-                            end=L(),
                         ),
-                        start=L(),
-                        end=L(),
                     ),
                     alias=None,
-                    start=L(),
-                    end=L(),
                 ),
-                start=L(),
-                end=L(),
             ),
             join=[],
             where=None,
             group_by=None,
-            start=L(),
-            end=L(),
         ),
-        start=L(),
-        end=L(),
     )
