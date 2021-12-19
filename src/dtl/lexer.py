@@ -13,6 +13,7 @@ _KEYWORD_TOKEN_CLASSES = {
     "JOIN": t.Join,
     "ON": t.On,
     "WHERE": t.Where,
+    "WITH": t.With,
 }
 
 

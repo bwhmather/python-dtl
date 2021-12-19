@@ -172,7 +172,7 @@ _generator.register(
 # === Statements ===============================================================
 
 _generator.register(
-    n.AssignmentStatement, [n.TableName, t.Eq, n.TableExpression]
+    n.AssignmentStatement, [t.With, n.TableName, t.As, n.TableExpression]
 )
 
 

@@ -41,7 +41,7 @@ nw = NodeModuleWrapper()
 
 def test_assign_select():
     statement = _parse_statement(
-        "variable = SELECT column_a, column_b FROM table"
+        "WITH variable AS SELECT column_a, column_b FROM table"
     )
 
     assert statement == nw.AssignmentStatement(
