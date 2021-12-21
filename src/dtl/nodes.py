@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
-import dtl.tokens as t
 from dtl.types import Location
 
 
@@ -11,6 +10,14 @@ from dtl.types import Location
 class Node:
     start: Location
     end: Location
+
+
+# === Literals =================================================================
+
+
+@dataclass(frozen=True)
+class String(Node):
+    value: str
 
 
 # === Columns ==================================================================
@@ -41,7 +48,7 @@ class Expression(Node):
 
 
 @dataclass(frozen=True)
-class ColumnRefExpr(Expression):
+class ColumnReferenceExpression(Expression):
     """
     A reference, by name, to a single column.
     """
@@ -55,20 +62,6 @@ class ColumnRefExpr(Expression):
 @dataclass(frozen=True)
 class TableName(Node):
     name: str
-
-
-class TableExpr(Node):
-    pass
-
-
-@dataclass(frozen=True)
-class SubqueryExpr(TableExpr):
-    source: TableExpression
-
-
-@dataclass(frozen=True)
-class TableRefExpr(TableExpr):
-    name: TableName
 
 
 # === Distinct =================================================================
@@ -106,7 +99,7 @@ class ColumnBinding(Node):
 
 @dataclass(frozen=True)
 class TableBinding(Node):
-    expression: TableExpr
+    expression: TableExpression
     alias: Optional[TableName]
 
 
@@ -211,7 +204,12 @@ class SelectExpression(TableExpression):
 
 @dataclass(frozen=True)
 class ImportExpression(TableExpression):
-    location: t.String
+    location: String
+
+
+@dataclass(frozen=True)
+class TableReferenceExpression(TableExpression):
+    name: str
 
 
 # === Statements ===============================================================
@@ -228,8 +226,29 @@ class AssignmentStatement(Statement):
 
 
 @dataclass(frozen=True)
+class UpdateStatement(Statement):
+    pass
+
+
+@dataclass(frozen=True)
+class DeleteStatement(Statement):
+    pass
+
+
+@dataclass(frozen=True)
+class InsertStatement(Statement):
+    pass
+
+
+@dataclass(frozen=True)
+class ExportStatement(Statement):
+    expression: TableExpression
+    location: String
+
+
+@dataclass(frozen=True)
 class BeginStatement(Statement):
-    text: t.String
+    text: String
 
 
 @dataclass(frozen=True)

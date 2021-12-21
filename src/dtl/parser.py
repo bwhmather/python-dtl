@@ -67,6 +67,35 @@ _generator = ParserGenerator(
     default_actions=dict(start=_start_action, end=_end_action),
 )
 
+# === Literals =================================================================
+
+
+def _parse_string(raw):
+    # TODO embarassing number of allocations.
+    raw = raw[1:-1]
+    out = ""
+    while raw:
+        next, raw = raw[0], raw[1:]
+
+        if next == "\\":
+            next, raw = raw[0], raw[1:]
+            next = {
+                "a": "\a",
+                "b": "\b",
+                "f": "\f",
+                "n": "\n",
+                "r": "\r",
+                "t": "\t",
+                "v": "\v",
+            }.get(next, next)
+
+        out += next
+    return out
+
+
+_generator.register(
+    n.String, [t.String], value=lambda token: _parse_string(token.text)
+)
 
 # === Columns ==================================================================
 
@@ -81,16 +110,12 @@ _generator.register(
     column_name=lambda table, _, column: column.text,
 )
 
-_generator.register(n.ColumnRefExpr, [n.ColumnName])
+_generator.register(n.ColumnReferenceExpression, [n.ColumnName])
 
 
 # === Tables ===================================================================
 
 _generator.register(n.TableName, [t.Name], name=lambda token: token.text)
-
-# TODO subqueries
-
-_generator.register(n.TableRefExpr, [n.TableName])
 
 
 # === Distinct =================================================================
@@ -113,12 +138,26 @@ _generator.register(
 # === From =====================================================================
 
 
-_generator.register(n.TableBinding, [n.TableExpr], alias=lambda *_: None)
 _generator.register(
     n.TableBinding,
-    [n.TableExpr, t.As, t.Name],
+    [t.OpenParen, n.TableExpression, t.CloseParen],
+    alias=lambda *_: None,
+)
+_generator.register(
+    n.TableBinding, [n.TableReferenceExpression], alias=lambda *_: None
+)
+
+_generator.register(
+    n.TableBinding,
+    [t.OpenParen, n.TableExpression, t.CloseParen, t.As, t.Name],
     alias=lambda from_, source_, as_, alias: alias.text,
 )
+_generator.register(
+    n.TableBinding,
+    [n.TableReferenceExpression, t.As, t.Name],
+    alias=lambda from_, source_, as_, alias: alias.text,
+)
+
 _generator.register(n.FromClause, [t.From, n.TableBinding])
 
 
@@ -153,7 +192,7 @@ _generator.register(
     consecutive=lambda *_: True,
 )
 
-# === TableExpressions ==============================================================
+# === Table Expressions ========================================================
 
 _generator.register(
     n.SelectExpression,
@@ -168,17 +207,25 @@ _generator.register(
     ],
 )
 
+_generator.register(n.ImportExpression, [t.Import, n.String])
+
+_generator.register(
+    n.TableReferenceExpression, [t.Name], name=lambda token: token.text
+)
+
 
 # === Statements ===============================================================
 
 _generator.register(
-    n.AssignmentStatement, [t.With, n.TableName, t.As, n.TableExpression]
+    n.AssignmentStatement,
+    [t.With, n.TableName, t.As, n.TableExpression, t.Semicolon],
 )
-
-
 _generator.register(
-    n.StatementList, [Annotated[List[n.Statement], Delimiter(t.Semicolon)]]
+    n.ExportStatement,
+    [t.Export, n.TableExpression, t.To, n.String, t.Semicolon],
 )
+
+_generator.register(n.StatementList, [List[n.Statement]])
 _parser = _generator.parser(target=n.StatementList)
 
 

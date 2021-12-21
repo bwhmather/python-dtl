@@ -14,6 +14,9 @@ _KEYWORD_TOKEN_CLASSES = {
     "ON": t.On,
     "WHERE": t.Where,
     "WITH": t.With,
+    "IMPORT": t.Import,
+    "EXPORT": t.Export,
+    "TO": t.To,
 }
 
 
@@ -112,7 +115,7 @@ class _Tokenizer:
                 curr = self._bump()
                 if curr == "\\":
                     self._bump()
-                if curr == '"':
+                if curr == "'":
                     return t.String
 
         if "0" <= curr <= "9":

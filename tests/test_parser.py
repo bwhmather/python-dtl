@@ -41,7 +41,7 @@ nw = NodeModuleWrapper()
 
 def test_assign_select():
     statement = _parse_statement(
-        "WITH variable AS SELECT column_a, column_b FROM table"
+        "WITH variable AS SELECT column_a, column_b FROM table;"
     )
 
     assert statement == nw.AssignmentStatement(
@@ -50,7 +50,7 @@ def test_assign_select():
             distinct=None,
             columns=[
                 nw.ColumnBinding(
-                    expression=nw.ColumnRefExpr(
+                    expression=nw.ColumnReferenceExpression(
                         name=nw.UnqualifiedColumnName(
                             column_name="column_a",
                         ),
@@ -58,7 +58,7 @@ def test_assign_select():
                     alias=None,
                 ),
                 nw.ColumnBinding(
-                    expression=nw.ColumnRefExpr(
+                    expression=nw.ColumnReferenceExpression(
                         name=nw.UnqualifiedColumnName(
                             column_name="column_b",
                         ),
@@ -68,10 +68,8 @@ def test_assign_select():
             ],
             source=nw.FromClause(
                 source=nw.TableBinding(
-                    expression=nw.TableRefExpr(
-                        name=nw.TableName(
-                            name="table",
-                        ),
+                    expression=nw.TableReferenceExpression(
+                        name="table",
                     ),
                     alias=None,
                 ),

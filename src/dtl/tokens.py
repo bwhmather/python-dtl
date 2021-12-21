@@ -103,6 +103,18 @@ class With(Token):
     pass
 
 
+class Import(Token):
+    pass
+
+
+class Export(Token):
+    pass
+
+
+class To(Token):
+    pass
+
+
 # --- Symbols ---
 
 
