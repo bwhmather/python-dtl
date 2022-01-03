@@ -23,10 +23,14 @@ def _strip_namespaces(columns: List[ir.Column]) -> List[ir.Column]:
     return output
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, eq=False)
 class Context:
-    inputs: Dict[str, ir.Table]
-    globals: Dict[str, ir.Table]
+    inputs: Dict[str, ir.Table] = dataclasses.field(
+        init=False, default_factory=dict
+    )
+    globals: Dict[str, ir.Table] = dataclasses.field(
+        init=False, default_factory=dict
+    )
 
 
 @singledispatch
@@ -47,7 +51,7 @@ def compile_expression(
     scope: ir.Table,
     program: ir.Program,
     context: Context,
-) -> ir.Expression:
+) -> ir.ExpressionRef:
     raise NotImplementedError(
         f"compile_expression not implemented for {type(expr).__name__}"
     )
@@ -60,7 +64,7 @@ def compile_column_reference_expression(
     scope: ir.Table,
     program: ir.Program,
     context: Context,
-) -> ir.Expression:
+) -> ir.ExpressionRef:
     if isinstance(expr.name, n.UnqualifiedColumnName):
         namespace = None
         name = expr.name.column_name
@@ -165,7 +169,7 @@ def compile_select_table_expression(
 
         columns = []
         for src_column in src_table.columns:
-            column_expr = ir.Where(
+            column_expr = program.expressions.push_where_expr(
                 source=src_column.expression, mask=condition_expr
             )
 
@@ -281,17 +285,17 @@ def compile_export_statement(
 def compile_ast_to_ir(
     source: n.StatementList, *, input_types: Dict[str, List[str]]
 ) -> ir.Program:
-    program = ir.Program(expressions=[], tables=[], exports={})
-    context = Context(inputs={}, globals={})
+    program = ir.Program()
+    context = Context()
 
     for location, column_names in input_types.items():
         columns = []
         for name in column_names:
-            column_expr = ir.Import(
+            column_expr = program.expressions.push_import_expr(
+                dtype=ir.DType.DOUBLE,  # TODO
                 location=location,
                 name=name,
             )
-            program.expressions.append(column_expr)
             column = ir.Column(
                 name=name,
                 namespaces={None},

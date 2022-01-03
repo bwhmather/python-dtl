@@ -23,14 +23,14 @@ def eval_expression(expression: ir.Expression, context: Context) -> pa.Array:
     raise NotImplementedError()
 
 
-@eval_expression.register(ir.Import)
+@eval_expression.register(ir.ImportExpression)
 def eval_import_expression(
-    expression: ir.Import, context: Context
+    expression: ir.ImportExpression, context: Context
 ) -> pa.Array:
     return context.inputs[expression.location][expression.name]
 
 
-@eval_expression.register(ir.Where)
+@eval_expression.register(ir.WhereExpression)
 def eval_where_expression(expression: ir.Where, context: Context) -> pa.Array:
     raise NotImplementedError
 
@@ -46,10 +46,9 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
     )
 
     context = Context(results={}, inputs=inputs)
-    for expression in program.expressions:
-        context.results[expression] = eval_expression(
-            expression, context=context
-        )
+    for ref in program.expressions:
+        expression = program.expressions[ref]
+        context.results[ref] = eval_expression(expression, context=context)
 
     print(program.expressions)
     print(context)
