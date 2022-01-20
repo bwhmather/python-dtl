@@ -86,6 +86,32 @@ def compile_column_reference_expression(
     raise Exception(f"could not find {expr.name.column_name}")
 
 
+@compile_expression.register(n.FunctionCallExpression)
+def compile_function_call_expression(
+    expr: n.FunctionCallExpression,
+    *,
+    scope: ir.Table,
+    program: ir.Program,
+    context: Context,
+) -> ir.ExpressionRef:
+    if expr.name == "add":
+        assert len(expr.arguments) == 2
+
+        expr_a, expr_b = expr.arguments
+        source_a = compile_column_reference_expression(
+            expr_a, scope=scope, program=program, context=context
+        )
+        source_b = compile_column_reference_expression(
+            expr_b, scope=scope, program=program, context=context
+        )
+
+        return program.expressions.push_add_expr(
+            source_a=source_a, source_b=source_b
+        )
+
+    raise NotImplementedError()
+
+
 @singledispatch
 def table_expression_name(expr: n.TableExpression) -> str:
     return ""

@@ -56,6 +56,12 @@ class ColumnReferenceExpression(Expression):
     name: ColumnName
 
 
+@dataclass(frozen=True)
+class FunctionCallExpression(Expression):
+    name: str
+    arguments: List[Expression]
+
+
 # === Tables ===================================================================
 
 

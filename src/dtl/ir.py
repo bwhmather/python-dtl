@@ -64,7 +64,7 @@ class JoinRightExpression(Expression):
 
 
 @dataclasses.dataclass(frozen=True)
-class AddExpression:
+class AddExpression(Expression):
     source_a: ExpressionRef
     source_b: ExpressionRef
 
@@ -192,7 +192,7 @@ class ExpressionSet:
             raise Exception("dependency error")
         mask_expr = self.__expressions[mask]
 
-        if mask_expr.dtype != DType.Bool:
+        if mask_expr.dtype != DType.BOOL:
             raise Exception("Type error")
 
         self.__expressions[ref] = WhereExpression(
@@ -229,7 +229,7 @@ class ExpressionSet:
             raise Exception("Dependency error")
         indexes_expr = self.__expressions[indexes]
 
-        if indexes_expr.dtype != DType.Int:
+        if indexes_expr.dtype != DType.INT32:
             raise Exception("Type error")
 
         self.__expressions[ref] = PickExpression(
@@ -257,9 +257,45 @@ class ExpressionSet:
             raise Exception("Dependency error")
 
         self.__expressions[ref] = IndexExpression(
-            dtype=DType.Int32,
+            dtype=DType.INT32,
             source=source,
         )
+
+        return ref
+
+    def push_add_expr(
+        self,
+        *,
+        source_a: ExpressionRef,
+        source_b: ExpressionRef,
+        ref: Optional[ExpressionRef] = None,
+    ) -> ExpressionRef:
+        validate_uuid(source_a)
+        validate_uuid(source_b)
+        validate_uuid(ref, required=False)
+
+        if ref is None:
+            ref = uuid4()
+        assert ref not in self.__expressions
+
+        if source_a not in self.__expressions:
+            raise Exception("Dependency error")
+        expr_a = self.__expressions[source_a]
+
+        if source_b not in self.__expressions:
+            raise Exception("Dependency error")
+        expr_b = self.__expressions[source_b]
+
+        if expr_a.dtype != expr_b.dtype:
+            raise Exception("source data types do not match")
+
+        self.__expressions[ref] = AddExpression(
+            dtype=expr_a.dtype,
+            source_a=source_a,
+            source_b=source_b,
+        )
+
+        return ref
 
     def get(self, key: ExpressionRef) -> Expression:
         return self.__expressions.get(key)

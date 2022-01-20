@@ -204,7 +204,10 @@ class Parser:
                 item_type = _optional_item_type(symbol).__name__
                 return f"Optional[{item_type}]"
 
-            return symbol.__name__
+            if hasattr(symbol, "__name__"):
+                return symbol.__name__
+
+            return repr(symbol)
 
         import io
 

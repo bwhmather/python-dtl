@@ -113,6 +113,18 @@ _generator.register(
 _generator.register(n.ColumnReferenceExpression, [n.ColumnName])
 
 
+_generator.register(
+    n.FunctionCallExpression,
+    [
+        t.Name,
+        t.OpenParen,
+        Annotated[List[n.Expression], Delimiter(t.Comma)],
+        t.CloseParen,
+    ],
+    name=lambda token, *_: token.text,
+)
+
+
 # === Tables ===================================================================
 
 _generator.register(n.TableName, [t.Name], name=lambda token: token.text)

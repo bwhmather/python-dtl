@@ -5,6 +5,7 @@ from functools import singledispatch
 from typing import Dict
 
 import pyarrow as pa
+import pyarrow.compute as pac
 
 from dtl import ir as ir
 from dtl.ast_to_ir import compile_ast_to_ir
@@ -31,8 +32,19 @@ def eval_import_expression(
 
 
 @eval_expression.register(ir.WhereExpression)
-def eval_where_expression(expression: ir.Where, context: Context) -> pa.Array:
+def eval_where_expression(
+    expression: ir.WhereExpression, context: Context
+) -> pa.Array:
     raise NotImplementedError
+
+
+@eval_expression.register(ir.AddExpression)
+def eval_add_expression(
+    expression: ir.AddExpression, context: Context
+) -> pa.Array:
+    a = context.results[expression.source_a]
+    b = context.results[expression.source_b]
+    return pac.add(a, b)
 
 
 def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
