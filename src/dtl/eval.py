@@ -58,11 +58,17 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
     )
 
     context = Context(results={}, inputs=inputs)
-    for ref in program.expressions:
-        expression = program.expressions[ref]
-        context.results[ref] = eval_expression(expression, context=context)
+    roots = {
+        column.expression
+        for table in program.tables
+        for column in table.columns
+    }
 
-    print(program.expressions)
+    for expression in ir.traverse_depth_first(roots):
+        context.results[expression] = eval_expression(
+            expression, context=context
+        )
+
     print(context)
 
     exports = {}

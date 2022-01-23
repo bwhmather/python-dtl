@@ -51,7 +51,7 @@ def compile_expression(
     scope: ir.Table,
     program: ir.Program,
     context: Context,
-) -> ir.ExpressionRef:
+) -> ir.Expression:
     raise NotImplementedError(
         f"compile_expression not implemented for {type(expr).__name__}"
     )
@@ -64,7 +64,7 @@ def compile_column_reference_expression(
     scope: ir.Table,
     program: ir.Program,
     context: Context,
-) -> ir.ExpressionRef:
+) -> ir.Expression:
     if isinstance(expr.name, n.UnqualifiedColumnName):
         namespace = None
         name = expr.name.column_name
@@ -93,7 +93,7 @@ def compile_function_call_expression(
     scope: ir.Table,
     program: ir.Program,
     context: Context,
-) -> ir.ExpressionRef:
+) -> ir.Expression:
     if expr.name == "add":
         assert len(expr.arguments) == 2
 
@@ -105,8 +105,11 @@ def compile_function_call_expression(
             expr_b, scope=scope, program=program, context=context
         )
 
-        return program.expressions.push_add_expr(
-            source_a=source_a, source_b=source_b
+        if source_a.dtype != source_b.dtype:
+            raise Exception("Type error")
+
+        return ir.AddExpression(
+            dtype=source_a.dtype, source_a=source_a, source_b=source_b
         )
 
     raise NotImplementedError()
@@ -195,8 +198,10 @@ def compile_select_table_expression(
 
         columns = []
         for src_column in src_table.columns:
-            column_expr = program.expressions.push_where_expr(
-                source=src_column.expression, mask=condition_expr
+            column_expr = ir.WhereExpression(
+                dtype=src_column.expression.dtype,
+                source=src_column.expression,
+                mask=condition_expr,
             )
 
             column = ir.Column(
@@ -317,7 +322,7 @@ def compile_ast_to_ir(
     for location, column_names in input_types.items():
         columns = []
         for name in column_names:
-            column_expr = program.expressions.push_import_expr(
+            column_expr = ir.ImportExpression(
                 dtype=ir.DType.DOUBLE,  # TODO
                 location=location,
                 name=name,

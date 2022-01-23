@@ -1,10 +1,9 @@
+from __future__ import annotations
+
 import dataclasses
 import enum
-from collections import OrderedDict
-from typing import Dict, Iterator, List, Optional, Set
-from uuid import UUID, uuid4
-
-from validation import validate_text, validate_uuid
+from functools import singledispatch
+from typing import Callable, Dict, Iterable, List, Optional, Set
 
 from dtl import nodes as n
 
@@ -20,53 +19,53 @@ class DType(enum.Enum):
 # === Expressions ==============================================================
 
 
-ExpressionRef = UUID
-
-
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, eq=False)
 class Expression:
     dtype: DType
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, eq=False)
 class ImportExpression(Expression):
     location: str
     name: str
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, eq=False)
 class WhereExpression(Expression):
-    source: ExpressionRef
-    mask: ExpressionRef
+    source: Expression
+    mask: Expression
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, eq=False)
 class PickExpression(Expression):
-    source: ExpressionRef
-    indexes: ExpressionRef
+    source: Expression
+    indexes: Expression
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, eq=False)
 class IndexExpression(Expression):
-    source: ExpressionRef
+    source: Expression
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, eq=False)
 class JoinLeftExpression(Expression):
-    source_a: ExpressionRef
-    source_b: ExpressionRef
+    source_a: Expression
+    source_b: Expression
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, eq=False)
 class JoinRightExpression(Expression):
-    source_a: ExpressionRef
-    source_b: ExpressionRef
+    source_a: Expression
+    source_b: Expression
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, eq=False)
 class AddExpression(Expression):
-    source_a: ExpressionRef
-    source_b: ExpressionRef
+    source_a: Expression
+    source_b: Expression
+
+
+assert AddExpression.__hash__ is Expression.__hash__
 
 
 # === Tables ===================================================================
@@ -98,7 +97,7 @@ class Column:
     name: str
     namespaces: Set[Optional[str]]
 
-    expression: ExpressionRef
+    expression: Expression
 
 
 @dataclasses.dataclass(frozen=True)
@@ -110,209 +109,236 @@ class Table:
     columns: List[Column]
 
 
-# === Validation ===============================================================
-
-_undefined = object()
-
-
-def validate_dtype(value=_undefined, *, required=True):
-    def _validate_dtype(value):
-        if value is None:
-            if required:
-                raise TypeError("required sha1 is None")
-            return
-
-        if not isinstance(value, DType):
-            raise TypeError(
-                f"expected DType, but value is of type {type(value).__name__}"
-            )
-
-    if value is not _undefined:
-        return _validate_dtype(value)
-    return _validate_dtype
-
-
 # === Program ==================================================================
-
-
-class ExpressionSet:
-    def __init__(self):
-        self.__expressions = OrderedDict()
-
-    def push_import_expr(
-        self,
-        *,
-        location: str,
-        name: str,
-        dtype: DType,
-        ref: Optional[ExpressionRef] = None,
-    ) -> ExpressionRef:
-        validate_text(location)
-        validate_text(name)
-        validate_dtype(dtype)
-        validate_uuid(ref, required=False)
-
-        if ref is None:
-            ref = uuid4()
-        assert ref not in self.__expressions
-
-        self.__expressions[ref] = ImportExpression(
-            dtype=dtype,
-            name=name,
-            location=location,
-        )
-
-        return ref
-
-    def push_where_expr(
-        self,
-        *,
-        source: ExpressionRef,
-        mask: ExpressionRef,
-        dtype: Optional[DType],
-        ref: Optional[ExpressionRef] = None,
-    ) -> ExpressionRef:
-        validate_uuid(source)
-        validate_uuid(mask)
-        validate_dtype(dtype, required=False)
-        validate_uuid(ref, required=False)
-
-        if ref is None:
-            ref = uuid4()
-        assert ref not in self.__expressions
-
-        if source not in self.__expressions:
-            raise Exception("dependency error")
-        source_expr = self.__expressions[source]
-
-        if dtype is not None and source_expr.dtype != dtype:
-            raise AssertionError("specified dtype does not match derived")
-
-        if mask not in self.__expressions:
-            raise Exception("dependency error")
-        mask_expr = self.__expressions[mask]
-
-        if mask_expr.dtype != DType.BOOL:
-            raise Exception("Type error")
-
-        self.__expressions[ref] = WhereExpression(
-            dtype=source_expr.dtype, source=source, mask=mask
-        )
-
-        return ref
-
-    def push_pick_expr(
-        self,
-        *,
-        source: ExpressionRef,
-        indexes: ExpressionRef,
-        dtype: Optional[DType],
-        ref: Optional[ExpressionRef] = None,
-    ) -> ExpressionRef:
-        validate_uuid(source)
-        validate_uuid(indexes)
-        validate_dtype(required=False)
-        validate_uuid(ref, required=False)
-
-        if ref is None:
-            ref = uuid4()
-        assert ref not in self.__expressions
-
-        if source not in self.__expressions:
-            raise Exception("Dependency error")
-        source_expr = self.__expressions[source]
-
-        if dtype is not None and source_expr.dtype != dtype:
-            raise AssertionError("specified dtype does not match derived")
-
-        if indexes not in self.__expressions:
-            raise Exception("Dependency error")
-        indexes_expr = self.__expressions[indexes]
-
-        if indexes_expr.dtype != DType.INT32:
-            raise Exception("Type error")
-
-        self.__expressions[ref] = PickExpression(
-            dtype=source_expr.dtype,
-            source=source,
-            indexes=indexes,
-        )
-
-        return ref
-
-    def push_index_expr(
-        self,
-        *,
-        source: ExpressionRef,
-        ref: Optional[ExpressionRef] = None,
-    ) -> ExpressionRef:
-        validate_uuid(source)
-        validate_uuid(ref, required=False)
-
-        if ref is None:
-            ref = uuid4()
-        assert ref not in self.__expressions
-
-        if source not in self.__expressions:
-            raise Exception("Dependency error")
-
-        self.__expressions[ref] = IndexExpression(
-            dtype=DType.INT32,
-            source=source,
-        )
-
-        return ref
-
-    def push_add_expr(
-        self,
-        *,
-        source_a: ExpressionRef,
-        source_b: ExpressionRef,
-        ref: Optional[ExpressionRef] = None,
-    ) -> ExpressionRef:
-        validate_uuid(source_a)
-        validate_uuid(source_b)
-        validate_uuid(ref, required=False)
-
-        if ref is None:
-            ref = uuid4()
-        assert ref not in self.__expressions
-
-        if source_a not in self.__expressions:
-            raise Exception("Dependency error")
-        expr_a = self.__expressions[source_a]
-
-        if source_b not in self.__expressions:
-            raise Exception("Dependency error")
-        expr_b = self.__expressions[source_b]
-
-        if expr_a.dtype != expr_b.dtype:
-            raise Exception("source data types do not match")
-
-        self.__expressions[ref] = AddExpression(
-            dtype=expr_a.dtype,
-            source_a=source_a,
-            source_b=source_b,
-        )
-
-        return ref
-
-    def get(self, key: ExpressionRef) -> Expression:
-        return self.__expressions.get(key)
-
-    def __getitem__(self, key: ExpressionRef) -> ExpressionRef:
-        return self.__expressions[key]
-
-    def __iter__(self) -> Iterator[ExpressionRef]:
-        yield from self.__expressions
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class Program:
-    expressions: ExpressionSet = dataclasses.field(
-        init=False, default_factory=ExpressionSet
-    )
     tables: List[Table] = dataclasses.field(init=False, default_factory=list)
     exports: Dict[str, Table] = dataclasses.field(
         init=False, default_factory=dict
     )
+
+
+# === Helpers ==================================================================
+
+
+@singledispatch
+def _transform_children(
+    expr: Expression, *, transform: Callable[[Expression], Expression]
+) -> Expression:
+    raise NotImplementedError()
+
+
+@_transform_children.register(ImportExpression)
+def _transform_import_expr_children(
+    expr: ImportExpression, *, transform: Callable[[Expression], Expression]
+) -> ImportExpression:
+    return expr
+
+
+@_transform_children.register(WhereExpression)
+def _transform_where_expr_children(
+    expr: WhereExpression, *, transform: Callable[[Expression], Expression]
+) -> WhereExpression:
+    source = transform(expr.source)
+    mask = transform(expr.mask)
+
+    if source is expr.source and mask is expr.mask:
+        return expr
+
+    return WhereExpression(
+        dtype=expr.dtype,
+        source=source,
+        mask=mask,
+    )
+
+
+@_transform_children.register(PickExpression)
+def _transform_pick_expr_children(
+    expr: PickExpression, *, transform: Callable[[Expression], Expression]
+) -> PickExpression:
+    source = transform(expr.source)
+    indexes = transform(expr.indexes)
+
+    if source is expr.source and indexes is expr.indexes:
+        return expr
+
+    return PickExpression(
+        dtype=expr.dtype,
+        source=source,
+        indexes=indexes,
+    )
+
+
+@_transform_children.register(IndexExpression)
+def _transform_index_expr_children(
+    expr: IndexExpression, *, transform: Callable[[Expression], Expression]
+) -> IndexExpression:
+    source = transform(expr.source)
+
+    if source is expr.source:
+        return expr
+
+    return IndexExpression(
+        dtype=expr.dtype,
+        source=source,
+    )
+
+
+@_transform_children.register(JoinLeftExpression)
+def _transform_join_left_expr_children(
+    expr: JoinLeftExpression, *, transform: Callable[[Expression], Expression]
+) -> JoinLeftExpression:
+    source_a = transform(expr.source_a)
+    source_b = transform(expr.source_b)
+
+    if source_a is expr.source_a and source_b is expr.source_b:
+        return expr
+
+    return JoinLeftExpression(
+        dtype=expr.dtype,
+        source_a=expr.source_a,
+        source_b=expr.source_b,
+    )
+
+
+@_transform_children.register(JoinRightExpression)
+def _transform_join_right_expr_children(
+    expr: JoinRightExpression, *, transform: Callable[[Expression], Expression]
+) -> JoinRightExpression:
+    source_a = transform(expr.source_a)
+    source_b = transform(expr.source_b)
+
+    if source_a is expr.source_a and source_b is expr.source_b:
+        return expr
+
+    return JoinRightExpression(
+        dtype=expr.dtype,
+        source_a=expr.source_a,
+        source_b=expr.source_b,
+    )
+
+
+@_transform_children.register(AddExpression)
+def _transform_add_expr_children(
+    expr: AddExpression, *, transform: Callable[[Expression], Expression]
+) -> AddExpression:
+    source_a = transform(expr.source_a)
+    source_b = transform(expr.source_b)
+
+    if source_a is expr.source_a and source_b is expr.source_b:
+        return expr
+
+    return AddExpression(
+        dtype=expr.dtype,
+        source_a=expr.source_a,
+        source_b=expr.source_b,
+    )
+
+
+def map(function, roots):
+    mapping: Dict[Expression, Expression] = {}
+
+    def _transform(expr: Expression) -> Expression:
+        if expr not in mapping:
+            mapping[expr] = function(
+                _transform_children(expr, transform=_transform)
+            )
+        return mapping[expr]
+
+    return [_transform(root) for root in roots]
+
+
+@singledispatch
+def dependencies(expr: Expression) -> Iterable[Expression]:
+    """
+    Yields the direct dependencies of the given expression.
+    """
+    raise NotImplementedError()
+
+
+@dependencies.register(ImportExpression)
+def _get_import_expr_dependencies(
+    expr: ImportExpression,
+) -> Iterable[Expression]:
+    return
+    yield
+
+
+@dependencies.register(WhereExpression)
+def _get_where_expr_dependencies(
+    expr: WhereExpression,
+) -> Iterable[Expression]:
+    yield expr.source
+    yield expr.mask
+
+
+@dependencies.register(PickExpression)
+def _get_pick_expr_dependencies(expr: PickExpression) -> Iterable[Expression]:
+    yield expr.source
+    yield expr.indexes
+
+
+@dependencies.register(IndexExpression)
+def _get_index_expr_dependencies(
+    expr: IndexExpression,
+) -> Iterable[Expression]:
+    yield expr.source
+
+
+@dependencies.register(JoinLeftExpression)
+def _get_join_left_expr_dependencies(
+    expr: JoinLeftExpression,
+) -> Iterable[Expression]:
+    yield expr.source_a
+    yield expr.source_b
+
+
+@dependencies.register(JoinRightExpression)
+def _get_join_right_expr_dependencies(
+    expr: JoinRightExpression,
+) -> Iterable[Expression]:
+    yield expr.source_a
+    yield expr.source_b
+
+
+@dependencies.register(AddExpression)
+def _get_add_expr_dependencies(expr: AddExpression) -> Iterable[Expression]:
+    yield expr.source_a
+    yield expr.source_b
+
+
+def traverse_depth_first(roots):
+    """
+    Yields all expression reachable from the list of roots, in depth first
+    order, i.e. with dependencies always being yielded before the expressions
+    that depend on them.
+
+    Reachable expressions will be yielded no more than once.
+    """
+    visited = set()
+    stack = [list(roots)]
+    while stack:
+        # Expand the dependency list as far to the right as possible.
+        while stack[-1]:
+            next = stack[-1][-1]
+            stack.append(
+                [dep for dep in dependencies(next) if dep not in visited]
+            )
+
+        # Consume completed frames.
+        while True:
+            if stack[-1]:
+                break
+
+            stack.pop()
+
+            if not stack:
+                break
+
+            next = stack[-1].pop()
+
+            if next not in visited:
+                yield next
+            visited.add(next)
