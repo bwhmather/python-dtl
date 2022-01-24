@@ -83,9 +83,10 @@ class DistinctClause(Node):
         DISTINCT CONSECUTIVE
     """
 
-    #: If false, all matching rows after the first occurence of a pattern should
-    #: be dropped, regardless of where they appear in the table.  If true, only
-    #: matching rows that appear immediately after each other should be droppe.
+    #: If false, all matching rows after the first occurrence of a pattern
+    #: should be dropped, regardless of where they appear in the table.  If true
+    #: only matching rows that appear immediately after each other should be
+    #: dropped.
     consecutive: bool
 
 
@@ -184,14 +185,15 @@ class GroupByClause(Node):
         GROUP CONSECUTIVE BY table.key, table.subkey
     """
 
-    #: If false, all matching rows after the first occurence of a pattern should
-    #: be grouped, regardless of where they appear in the table.  If true, only
-    #: matching rows that appear immediately after each other should be grouped.
+    #: If false, all matching rows after the first occurrence of a pattern
+    #: should be grouped, regardless of where they appear in the table.  If
+    #: true, only matching rows that appear immediately after each other should
+    #: be grouped.
     consecutive: bool
     pattern: List[Expression]
 
 
-# === Table Expressions ==============================================================
+# === Table Expressions ========================================================
 
 
 class TableExpression(Node):
