@@ -115,6 +115,10 @@ class To(Token):
     pass
 
 
+class Using(Token):
+    pass
+
+
 # --- Symbols ---
 
 

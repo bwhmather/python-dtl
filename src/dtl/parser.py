@@ -179,6 +179,8 @@ _generator.register(n.JoinClause, [t.Join, n.TableBinding, n.JoinConstraint])
 
 _generator.register(n.JoinOnConstraint, [t.On, n.Expression])
 
+_generator.register(n.JoinUsingConstraint, [t.Using, t.OpenParen, Annotated[List[n.UnqualifiedColumnName], Delimiter(t.Comma)], t.CloseParen])
+
 
 # === Filtering ================================================================
 
