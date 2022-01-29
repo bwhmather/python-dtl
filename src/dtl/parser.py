@@ -142,9 +142,12 @@ _generator.register(
 
 # === Column Bindings ==========================================================
 
-_generator.register(n.ColumnBinding, [n.Expression], alias=lambda *_: None)
+_generator.register(n.WildcardColumnBinding, [t.Star])
+
+_generator.register(n.ImplicitColumnBinding, [n.Expression])
+
 _generator.register(
-    n.ColumnBinding, [n.Expression, t.As, n.UnqualifiedColumnName]
+    n.AliasedColumnBinding, [n.Expression, t.As, n.UnqualifiedColumnName]
 )
 
 # === From =====================================================================

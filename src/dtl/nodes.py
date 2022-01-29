@@ -93,12 +93,24 @@ class DistinctClause(Node):
 # === Column Bindings ==========================================================
 
 
-@dataclass(frozen=True)
 class ColumnBinding(Node):
-    """ """
+    pass
 
+
+@dataclass(frozen=True)
+class WildcardColumnBinding(ColumnBinding):
+    pass
+
+
+@dataclass(frozen=True)
+class ImplicitColumnBinding(ColumnBinding):
     expression: Expression
-    alias: Optional[UnqualifiedColumnName]
+
+
+@dataclass(frozen=True)
+class AliasedColumnBinding(ColumnBinding):
+    expression: Expression
+    alias: UnqualifiedColumnName
 
 
 # === From =====================================================================

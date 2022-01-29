@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 from functools import singledispatch
-from typing import Dict, List
+from typing import Dict, Iterable, List
 
 from dtl import ir as ir
 from dtl import nodes as n
@@ -157,6 +157,71 @@ def compile_reference_table_expression(
     return table
 
 
+@singledispatch
+def compile_column_binding(
+    binding: n.ColumnBinding,
+    *,
+    scope: ir.Table,
+    program: ir.Program,
+    context: Context,
+) -> Iterable[ir.Column]:
+    raise NotImplementedError()
+
+
+@compile_column_binding.register(n.WildcardColumnBinding)
+def compile_wildcard_column_binding(
+    binding: n.WildcardColumnBinding,
+    *,
+    scope: ir.Table,
+    program: ir.Program,
+    context: Context,
+) -> Iterable[ir.Column]:
+    for column in scope.columns:
+        yield ir.Column(
+            name=column.name, namespaces={None}, expression=column.expression
+        )
+
+
+@compile_column_binding.register(n.ImplicitColumnBinding)
+def compile_plain_column_binding(
+    binding: n.ImplicitColumnBinding,
+    *,
+    scope: ir.Table,
+    program: ir.Program,
+    context: Context,
+) -> Iterable[ir.Column]:
+    column_expr = compile_expression(
+        binding.expression,
+        program=program,
+        context=context,
+        scope=scope,
+    )
+
+    name = expression_name(binding.expression)
+
+    yield ir.Column(name=name, namespaces={None}, expression=column_expr)
+
+
+@compile_column_binding.register(n.AliasedColumnBinding)
+def compile_aliased_column_binding(
+    binding: n.AliasedColumnBinding,
+    *,
+    scope: ir.Table,
+    program: ir.Program,
+    context: Context,
+) -> Iterable[ir.Column]:
+    column_expr = compile_expression(
+        binding.expression,
+        program=program,
+        context=context,
+        scope=scope,
+    )
+
+    name = binding.alias.column_name
+
+    yield ir.Column(name=name, namespaces={None}, expression=column_expr)
+
+
 @compile_table_expression.register(n.SelectExpression)
 def compile_select_table_expression(
     expr: n.SelectExpression, *, program: ir.Program, context: Context
@@ -217,25 +282,13 @@ def compile_select_table_expression(
     if expr.group_by is not None:
         raise NotImplementedError()
 
-    columns = []
+    columns = {}
     for column_binding in expr.columns:
-        column_expr = compile_expression(
-            column_binding.expression,
-            program=program,
-            context=context,
-            scope=src_table,
-        )
-        # TODO inject trace table.
-
-        if column_binding.alias is not None:
-            name = column_binding.alias.column_name
-        else:
-            name = expression_name(column_binding.expression)
-
-        column = ir.Column(
-            name=name, namespaces={None}, expression=column_expr
-        )
-        columns.append(column)
+        for column in compile_column_binding(
+            column_binding, scope=src_table, program=program, context=context
+        ):
+            columns[column.name] = column
+    columns = list(columns.values())
 
     table = ir.Table(ast_node=expr, level=ir.Level.STATEMENT, columns=columns)
     program.tables.append(table)

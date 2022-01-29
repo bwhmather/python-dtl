@@ -49,21 +49,19 @@ def test_assign_select():
         expression=nw.SelectExpression(
             distinct=None,
             columns=[
-                nw.ColumnBinding(
+                nw.ImplicitColumnBinding(
                     expression=nw.ColumnReferenceExpression(
                         name=nw.UnqualifiedColumnName(
                             column_name="column_a",
                         ),
                     ),
-                    alias=None,
                 ),
-                nw.ColumnBinding(
+                nw.ImplicitColumnBinding(
                     expression=nw.ColumnReferenceExpression(
                         name=nw.UnqualifiedColumnName(
                             column_name="column_b",
                         ),
                     ),
-                    alias=None,
                 ),
             ],
             source=nw.FromClause(
