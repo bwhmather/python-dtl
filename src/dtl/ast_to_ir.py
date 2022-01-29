@@ -98,10 +98,10 @@ def compile_function_call_expression(
         assert len(expr.arguments) == 2
 
         expr_a, expr_b = expr.arguments
-        source_a = compile_column_reference_expression(
+        source_a = compile_expression(
             expr_a, scope=scope, program=program, context=context
         )
-        source_b = compile_column_reference_expression(
+        source_b = compile_expression(
             expr_b, scope=scope, program=program, context=context
         )
 

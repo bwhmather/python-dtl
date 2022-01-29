@@ -29,3 +29,20 @@ def test_add_columns():
     assert outputs["output"] == pa.table(
         {"a": [1, 2, 3, 4], "b": [3, 4, 5, 6], "c": [4, 6, 8, 10]}
     )
+
+
+def test_recursive_add():
+    src = """
+    WITH input AS IMPORT 'input';
+    WITH output AS SELECT a, b, add(add(a, b), c) AS c FROM input;
+    EXPORT output TO 'output';
+    """
+    inputs = {
+        "input": pa.table(
+            {"a": [1, 2, 3, 4], "b": [3, 4, 5, 6], "c": [6, 5, 4, 3]}
+        )
+    }
+    outputs = evaluate(src, inputs)
+    assert outputs["output"] == pa.table(
+        {"a": [1, 2, 3, 4], "b": [3, 4, 5, 6], "c": [10, 11, 12, 13]}
+    )
