@@ -125,6 +125,20 @@ _generator.register(
 )
 
 
+_generator.register(n.AddExpression, [n.Expression, t.Plus, n.Expression])
+
+_generator.register(
+    n.SubtractExpression, [n.Expression, t.Minus, n.Expression]
+)
+
+_generator.register(n.MultiplyExpression, [n.Expression, t.Star, n.Expression])
+
+_generator.register(n.DivideExpression, [n.Expression, t.Slash, n.Expression])
+
+_generator.left(t.Plus, t.Minus)
+_generator.left(t.Star, t.Slash)
+
+
 # === Tables ===================================================================
 
 _generator.register(n.TableName, [t.Name], name=lambda token: token.text)

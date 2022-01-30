@@ -115,6 +115,94 @@ def compile_function_call_expression(
     raise NotImplementedError()
 
 
+@compile_expression.register(n.AddExpression)
+def compile_add_expression(
+    expr: n.AddExpression,
+    *,
+    scope: ir.Table,
+    program: ir.Program,
+    context: Context,
+) -> ir.Expression:
+    left = compile_expression(
+        expr.left, scope=scope, program=program, context=context
+    )
+    right = compile_expression(
+        expr.right, scope=scope, program=program, context=context
+    )
+
+    if left.dtype != right.dtype:
+        raise Exception("Type error")
+
+    return ir.AddExpression(dtype=left.dtype, source_a=left, source_b=right)
+
+
+@compile_expression.register(n.SubtractExpression)
+def compile_subtract_expression(
+    expr: n.SubtractExpression,
+    *,
+    scope: ir.Table,
+    program: ir.Program,
+    context: Context,
+) -> ir.Expression:
+    left = compile_expression(
+        expr.left, scope=scope, program=program, context=context
+    )
+    right = compile_expression(
+        expr.right, scope=scope, program=program, context=context
+    )
+
+    if left.dtype != right.dtype:
+        raise Exception("Type error")
+
+    return ir.SubtractExpression(
+        dtype=left.dtype, source_a=left, source_b=right
+    )
+
+
+@compile_expression.register(n.MultiplyExpression)
+def compile_multiply_expression(
+    expr: n.MultiplyExpression,
+    *,
+    scope: ir.Table,
+    program: ir.Program,
+    context: Context,
+) -> ir.Expression:
+    left = compile_expression(
+        expr.left, scope=scope, program=program, context=context
+    )
+    right = compile_expression(
+        expr.right, scope=scope, program=program, context=context
+    )
+
+    if left.dtype != right.dtype:
+        raise Exception("Type error")
+
+    return ir.MultiplyExpression(
+        dtype=left.dtype, source_a=left, source_b=right
+    )
+
+
+@compile_expression.register(n.DivideExpression)
+def compile_divide_expression(
+    expr: n.DivideExpression,
+    *,
+    scope: ir.Table,
+    program: ir.Program,
+    context: Context,
+) -> ir.Expression:
+    left = compile_expression(
+        expr.left, scope=scope, program=program, context=context
+    )
+    right = compile_expression(
+        expr.right, scope=scope, program=program, context=context
+    )
+
+    if left.dtype != right.dtype:
+        raise Exception("Type error")
+
+    return ir.DivideExpression(dtype=left.dtype, source_a=left, source_b=right)
+
+
 @singledispatch
 def table_expression_name(expr: n.TableExpression) -> str:
     return ""

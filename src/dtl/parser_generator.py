@@ -152,9 +152,11 @@ def _or_list(values):
 
 
 class Parser:
-    def __init__(self, productions, *, target, actions):
+    def __init__(self, productions, *, precedence_sets, target, actions):
         self._productions = productions
-        self._grammar = lalr.Grammar(productions)
+        self._grammar = lalr.Grammar(
+            productions, precedence_sets=precedence_sets
+        )
         self._parse_table = lalr.ParseTable(self._grammar, target)
         self._actions = actions
 
@@ -233,6 +235,8 @@ class ParserGenerator:
         self._productions = []
         self._actions = {}
 
+        self._precedence_sets = []
+
     def _add_production(self, cls, pattern, *, action):
         production = lalr.Production(cls, pattern)
         self._productions.append(production)
@@ -263,7 +267,6 @@ class ParserGenerator:
         actions = {**self._default_actions, **actions}
         pattern_iter = iter(enumerate(pattern))
         names = [None] * len(pattern)
-        index, pattern_type = next(pattern_iter)
 
         fields = dataclasses.fields(cls)
         hints = get_type_hints(cls, globalns=None, localns=None)
@@ -272,11 +275,14 @@ class ParserGenerator:
             if field.name in actions:
                 continue
 
-            while not _is_subclass(pattern_type, hints[field.name]):
+            while True:
                 try:
                     index, pattern_type = next(pattern_iter)
                 except StopIteration:
                     raise Exception(f"No binding found for {field.name!r}")
+
+                if _is_subclass(pattern_type, hints[field.name]):
+                    break
 
             names[index] = field.name
         names = tuple(names)
@@ -294,6 +300,15 @@ class ParserGenerator:
             return cls(**kwargs)
 
         self._add_production(cls, pattern, action=_action)
+
+    def left(self, *args):
+        self._precedence_sets.append(lalr.Left(*args))
+
+    def right(self, *args):
+        self._precedence_sets.append(lalr.Right(*args))
+
+    def precedence(self, *args):
+        self._precedence_sets.append(lalr.Precedence(*args))
 
     def _create_superclass_productions(self):
         """
@@ -422,4 +437,9 @@ class ParserGenerator:
         self._create_empty_variants()
         self._create_list_productions()
         self._create_optional_productions()
-        return Parser(self._productions, target=target, actions=self._actions)
+        return Parser(
+            self._productions,
+            precedence_sets=self._precedence_sets,
+            target=target,
+            actions=self._actions,
+        )

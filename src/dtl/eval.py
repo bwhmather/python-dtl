@@ -47,6 +47,33 @@ def eval_add_expression(
     return pac.add(a, b)
 
 
+@eval_expression.register(ir.SubtractExpression)
+def eval_subtract_expression(
+    expression: ir.SubtractExpression, context: Context
+) -> pa.Array:
+    a = context.results[expression.source_a]
+    b = context.results[expression.source_b]
+    return pac.subtract(a, b)
+
+
+@eval_expression.register(ir.MultiplyExpression)
+def eval_multiply_expression(
+    expression: ir.MultiplyExpression, context: Context
+) -> pa.Array:
+    a = context.results[expression.source_a]
+    b = context.results[expression.source_b]
+    return pac.multiply(a, b)
+
+
+@eval_expression.register(ir.DivideExpression)
+def eval_divide_expression(
+    expression: ir.DivideExpression, context: Context
+) -> pa.Array:
+    a = context.results[expression.source_a]
+    b = context.results[expression.source_b]
+    return pac.divide(a, b)
+
+
 def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
     ast = parse(tokenize(source))
 

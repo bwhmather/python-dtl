@@ -62,6 +62,30 @@ class FunctionCallExpression(Expression):
     arguments: List[Expression]
 
 
+@dataclass(frozen=True)
+class AddExpression(Expression):
+    left: Expression
+    right: Expression
+
+
+@dataclass(frozen=True)
+class SubtractExpression(Expression):
+    left: Expression
+    right: Expression
+
+
+@dataclass(frozen=True)
+class MultiplyExpression(Expression):
+    left: Expression
+    right: Expression
+
+
+@dataclass(frozen=True)
+class DivideExpression(Expression):
+    left: Expression
+    right: Expression
+
+
 # === Tables ===================================================================
 
 

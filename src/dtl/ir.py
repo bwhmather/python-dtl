@@ -65,6 +65,24 @@ class AddExpression(Expression):
     source_b: Expression
 
 
+@dataclasses.dataclass(frozen=True, eq=False)
+class SubtractExpression(Expression):
+    source_a: Expression
+    source_b: Expression
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class MultiplyExpression(Expression):
+    source_a: Expression
+    source_b: Expression
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class DivideExpression(Expression):
+    source_a: Expression
+    source_b: Expression
+
+
 assert AddExpression.__hash__ is Expression.__hash__
 
 
@@ -305,6 +323,30 @@ def _get_join_right_expr_dependencies(
 
 @dependencies.register(AddExpression)
 def _get_add_expr_dependencies(expr: AddExpression) -> Iterable[Expression]:
+    yield expr.source_a
+    yield expr.source_b
+
+
+@dependencies.register(SubtractExpression)
+def _get_subtract_expr_dependencies(
+    expr: SubtractExpression,
+) -> Iterable[Expression]:
+    yield expr.source_a
+    yield expr.source_b
+
+
+@dependencies.register(MultiplyExpression)
+def _get_multiply_expr_dependencies(
+    expr: MultiplyExpression,
+) -> Iterable[Expression]:
+    yield expr.source_a
+    yield expr.source_b
+
+
+@dependencies.register(DivideExpression)
+def _get_divide_expr_dependencies(
+    expr: DivideExpression,
+) -> Iterable[Expression]:
     yield expr.source_a
     yield expr.source_b
 
