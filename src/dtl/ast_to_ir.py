@@ -370,13 +370,13 @@ def compile_select_table_expression(
     if expr.group_by is not None:
         raise NotImplementedError()
 
-    columns = {}
+    columns_by_name = {}
     for column_binding in expr.columns:
         for column in compile_column_binding(
             column_binding, scope=src_table, program=program, context=context
         ):
-            columns[column.name] = column
-    columns = list(columns.values())
+            columns_by_name[column.name] = column
+    columns = list(columns_by_name.values())
 
     table = ir.Table(ast_node=expr, level=ir.Level.STATEMENT, columns=columns)
     program.tables.append(table)
