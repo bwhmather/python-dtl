@@ -225,8 +225,8 @@ def _transform_join_left_expr_children(
 
     return JoinLeftExpression(
         dtype=expr.dtype,
-        source_a=expr.source_a,
-        source_b=expr.source_b,
+        source_a=source_a,
+        source_b=source_b,
     )
 
 
@@ -242,8 +242,8 @@ def _transform_join_right_expr_children(
 
     return JoinRightExpression(
         dtype=expr.dtype,
-        source_a=expr.source_a,
-        source_b=expr.source_b,
+        source_a=source_a,
+        source_b=source_b,
     )
 
 
@@ -259,8 +259,8 @@ def _transform_add_expr_children(
 
     return AddExpression(
         dtype=expr.dtype,
-        source_a=expr.source_a,
-        source_b=expr.source_b,
+        source_a=source_a,
+        source_b=source_b,
     )
 
 
