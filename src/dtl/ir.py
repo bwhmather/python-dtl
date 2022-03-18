@@ -16,12 +16,21 @@ class DType(enum.Enum):
     BYTES = "BYTES"
 
 
+# === Shapes ===================================================================
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class Shape:
+    pass
+
+
 # === Expressions ==============================================================
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class Expression:
     dtype: DType
+    shape: Shape
 
 
 @dataclasses.dataclass(frozen=True, eq=False)

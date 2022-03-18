@@ -108,8 +108,14 @@ def compile_function_call_expression(
         if source_a.dtype != source_b.dtype:
             raise Exception("Type error")
 
+        if source_a.shape != source_b.shape:
+            raise AssertionError("Shape mismatch error")
+
         return ir.AddExpression(
-            dtype=source_a.dtype, source_a=source_a, source_b=source_b
+            dtype=source_a.dtype,
+            shape=source_a.shape,
+            source_a=source_a,
+            source_b=source_b,
         )
 
     raise NotImplementedError()
@@ -133,7 +139,12 @@ def compile_add_expression(
     if left.dtype != right.dtype:
         raise Exception("Type error")
 
-    return ir.AddExpression(dtype=left.dtype, source_a=left, source_b=right)
+    if left.shape != right.shape:
+        raise AssertionError("Shape mismatch error")
+
+    return ir.AddExpression(
+        dtype=left.dtype, shape=left.shape, source_a=left, source_b=right
+    )
 
 
 @compile_expression.register(n.SubtractExpression)
@@ -154,8 +165,11 @@ def compile_subtract_expression(
     if left.dtype != right.dtype:
         raise Exception("Type error")
 
+    if left.shape != right.shape:
+        raise AssertionError("Shape mismatch error")
+
     return ir.SubtractExpression(
-        dtype=left.dtype, source_a=left, source_b=right
+        dtype=left.dtype, shape=left.shape, source_a=left, source_b=right
     )
 
 
@@ -177,8 +191,11 @@ def compile_multiply_expression(
     if left.dtype != right.dtype:
         raise Exception("Type error")
 
+    if left.shape != right.shape:
+        raise AssertionError("Shape mismatch error")
+
     return ir.MultiplyExpression(
-        dtype=left.dtype, source_a=left, source_b=right
+        dtype=left.dtype, shape=left.shape, source_a=left, source_b=right
     )
 
 
@@ -200,7 +217,12 @@ def compile_divide_expression(
     if left.dtype != right.dtype:
         raise Exception("Type error")
 
-    return ir.DivideExpression(dtype=left.dtype, source_a=left, source_b=right)
+    if left.shape != right.shape:
+        raise AssertionError("Shape mismatch error")
+
+    return ir.DivideExpression(
+        dtype=left.dtype, shape=left.shape, source_a=left, source_b=right
+    )
 
 
 @singledispatch
@@ -349,10 +371,13 @@ def compile_select_table_expression(
         )
         # TODO inject trace table.
 
+        shape = ir.Shape()
+
         columns = []
         for src_column in src_table.columns:
             column_expr = ir.WhereExpression(
                 dtype=src_column.expression.dtype,
+                shape=shape,
                 source=src_column.expression,
                 mask=condition_expr,
             )
@@ -461,10 +486,13 @@ def compile_ast_to_ir(
     context = Context()
 
     for location, column_names in input_types.items():
+        shape = ir.Shape()
+
         columns = []
         for name in column_names:
             column_expr = ir.ImportExpression(
                 dtype=ir.DType.DOUBLE,  # TODO
+                shape=shape,
                 location=location,
                 name=name,
             )
@@ -474,6 +502,7 @@ def compile_ast_to_ir(
                 expression=column_expr,
             )
             columns.append(column)
+
         table = ir.Table(
             ast_node=None, level=ir.Level.INTERNAL, columns=columns
         )
