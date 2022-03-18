@@ -176,6 +176,7 @@ def _transform_where_expr_children(
 
     return WhereExpression(
         dtype=expr.dtype,
+        shape=expr.shape,
         source=source,
         mask=mask,
     )
@@ -193,6 +194,7 @@ def _transform_pick_expr_children(
 
     return PickExpression(
         dtype=expr.dtype,
+        shape=expr.shape,
         source=source,
         indexes=indexes,
     )
@@ -209,6 +211,7 @@ def _transform_index_expr_children(
 
     return IndexExpression(
         dtype=expr.dtype,
+        shape=source.shape,
         source=source,
     )
 
@@ -240,8 +243,11 @@ def _transform_join_right_expr_children(
     if source_a is expr.source_a and source_b is expr.source_b:
         return expr
 
+    assert source_a.shape == source_b.shape
+
     return JoinRightExpression(
         dtype=expr.dtype,
+        shape=source_a.shape,
         source_a=source_a,
         source_b=source_b,
     )
@@ -257,8 +263,11 @@ def _transform_add_expr_children(
     if source_a is expr.source_a and source_b is expr.source_b:
         return expr
 
+    assert source_a.shape == source_b.shape
+
     return AddExpression(
         dtype=expr.dtype,
+        shape=source_a.shape,
         source_a=source_a,
         source_b=source_b,
     )
