@@ -63,6 +63,36 @@ class FunctionCallExpression(Expression):
 
 
 @dataclass(frozen=True)
+class EqualToExpression(Expression):
+    left: Expression
+    right: Expression
+
+
+@dataclass(frozen=True)
+class LessThanExpression(Expression):
+    left: Expression
+    right: Expression
+
+
+@dataclass(frozen=True)
+class LessThanEqualExpression(Expression):
+    left: Expression
+    right: Expression
+
+
+@dataclass(frozen=True)
+class GreaterThanExpression(Expression):
+    left: Expression
+    right: Expression
+
+
+@dataclass(frozen=True)
+class GreaterThanEqualExpression(Expression):
+    left: Expression
+    right: Expression
+
+
+@dataclass(frozen=True)
 class AddExpression(Expression):
     left: Expression
     right: Expression

@@ -15,13 +15,16 @@ from dtl.parser import parse
 
 @dataclass(frozen=True)
 class Context:
+    shapes: Dict[ir.Shape, int]
     results: Dict[ir.Expression, pa.Array]
     inputs: Dict[str, pa.Table]
 
 
 @singledispatch
 def eval_expression(expression: ir.Expression, context: Context) -> pa.Array:
-    raise NotImplementedError()
+    raise NotImplementedError(
+        f"eval_expression not implemented for {type(expression).__name__}"
+    )
 
 
 @eval_expression.register(ir.ImportExpression)
@@ -31,11 +34,38 @@ def eval_import_expression(
     return context.inputs[expression.location][expression.name]
 
 
+@eval_expression.register(ir.JoinLeftExpression)
+def eval_join_left_expression(
+    expression: ir.JoinLeftExpression, context: Context
+) -> pa.Array:
+    source = context.results[expression.source_a]
+    count = context.shapes[expression.shape_b]
+    return pa.chunked_array(source.chunks * count)
+
+
+@eval_expression.register(ir.JoinLeftExpression)
+def eval_join_left_expression(
+    expression: ir.JoinLeftExpression, context: Context
+) -> pa.Array:
+    source = context.results[expression.source_a]
+    count = context.shapes[expression.shape_b]
+    return pa.chunked_array(source.chunks * count)
+
+
+@eval_expression.register(ir.JoinLeftExpression)
+def eval_join_right_expression(
+    expression: ir.JoinLeftExpression, context: Context
+) -> pa.Array:
+    source = context.results[expression.source_b]
+    count = context.shapes[expression.shape_a]
+    raise NotImplementedError()
+
+
 @eval_expression.register(ir.WhereExpression)
 def eval_where_expression(
     expression: ir.WhereExpression, context: Context
 ) -> pa.Array:
-    raise NotImplementedError
+    raise NotImplementedError()
 
 
 @eval_expression.register(ir.AddExpression)
@@ -84,7 +114,7 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
         },
     )
 
-    context = Context(results={}, inputs=inputs)
+    context = Context(shapes={}, results={}, inputs=inputs)
     roots = {
         column.expression
         for table in program.tables
@@ -92,9 +122,11 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
     }
 
     for expression in ir.traverse_depth_first(roots):
-        context.results[expression] = eval_expression(
-            expression, context=context
-        )
+        result = eval_expression(expression, context=context)
+        context.results[expression] = result
+        if expression.shape in context.shapes:
+            assert context.shapes[expression.shape] == len(result)
+        context.shapes[expression.shape] = len(result)
 
     print(context)
 

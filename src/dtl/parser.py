@@ -124,6 +124,20 @@ _generator.register(
     name=lambda token, *_: token.text,
 )
 
+_generator.register(n.EqualToExpression, [n.Expression, t.Eq, n.Expression])
+_generator.register(
+    n.LessThanExpression, [n.Expression, t.LessThan, n.Expression]
+)
+_generator.register(
+    n.LessThanEqualExpression, [n.Expression, t.LessThanEqual, n.Expression]
+)
+_generator.register(
+    n.GreaterThanExpression, [n.Expression, t.GreaterThan, n.Expression]
+)
+_generator.register(
+    n.GreaterThanEqualExpression,
+    [n.Expression, t.GreaterThanEqual, n.Expression],
+)
 
 _generator.register(n.AddExpression, [n.Expression, t.Plus, n.Expression])
 
@@ -135,6 +149,9 @@ _generator.register(n.MultiplyExpression, [n.Expression, t.Star, n.Expression])
 
 _generator.register(n.DivideExpression, [n.Expression, t.Slash, n.Expression])
 
+_generator.left(
+    t.Eq, t.LessThan, t.LessThanEqual, t.GreaterThan, t.GreaterThanEqual
+)
 _generator.left(t.Plus, t.Minus)
 _generator.left(t.Star, t.Slash)
 

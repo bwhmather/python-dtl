@@ -225,6 +225,32 @@ def compile_divide_expression(
     )
 
 
+@compile_expression.register(n.EqualToExpression)
+def compile_equal_to_expression(
+    expr: n.EqualToExpression,
+    *,
+    scope: ir.Table,
+    program: ir.Program,
+    context: Context,
+) -> ir.Expression:
+    left = compile_expression(
+        expr.left, scope=scope, program=program, context=context
+    )
+    right = compile_expression(
+        expr.right, scope=scope, program=program, context=context
+    )
+
+    if left.dtype != right.dtype:
+        raise Exception("Type error")
+
+    if left.shape != right.shape:
+        raise AssertionError("Shape mismatch error")
+
+    return ir.EqualToExpression(
+        dtype=ir.DType.BOOL, shape=left.shape, source_a=left, source_b=right
+    )
+
+
 @singledispatch
 def table_expression_name(expr: n.TableExpression) -> str:
     return ""
@@ -357,10 +383,84 @@ def compile_select_table_expression(
     )
     program.tables.append(src_table)
 
-    for join_expr in expr.join:
-        # src_table = environment.push_table(
-        #    ir.Join()
-        raise NotImplementedError()
+    for join_clause in expr.join:
+        join_table = compile_table_expression(
+            join_clause.table.expression, program=program, context=context
+        )
+
+        if join_clause.table.alias is not None:
+            join_name = join_clause.table.alias
+        else:
+            join_name = table_expression_name(join_clause.table.expression)
+
+        # Build table to act as environment for predicate.
+        shape_a = src_table.columns[0].expression.shape
+        shape_b = join_table.columns[0].expression.shape
+        shape_joined = ir.Shape()
+
+        columns = []
+        for column in src_table.columns:
+            column_expr = ir.JoinLeftExpression(
+                dtype=column.expression.dtype,
+                shape=shape_joined,
+                source_a=column.expression,
+                shape_b=shape_b,
+            )
+            new_column = ir.Column(
+                name=column.name,
+                namespaces={*column.namespaces},
+                expression=column_expr,
+            )
+            columns.append(new_column)
+
+        for column in join_table.columns:
+            column_expr = ir.JoinRightExpression(
+                dtype=column.expression.dtype,
+                shape=shape_joined,
+                shape_a=shape_a,
+                source_b=column.expression,
+            )
+            new_column = ir.Column(
+                name=column.name,
+                namespaces={join_name, *column.namespaces},
+                expression=column_expr,
+            )
+            columns.append(new_column)
+
+        src_table = ir.Table(
+            ast_node=None, level=ir.Level.INTERNAL, columns=columns
+        )
+
+        # Construct predicate expression.
+        predicate_expr = compile_expression(
+            join_clause.constraint.predicate,
+            program=program,
+            context=context,
+            scope=src_table,
+        )
+
+        # Filter table using predicate.
+        shape = ir.Shape()
+
+        columns = []
+        for column in src_table.columns:
+            column_expr = ir.WhereExpression(
+                dtype=column.expression.dtype,
+                shape=shape,
+                source=column.expression,
+                mask=predicate_expr,
+            )
+
+            new_column = ir.Column(
+                name=column.name,
+                namespaces=column.namespaces,
+                expression=column_expr,
+            )
+            columns.append(new_column)
+
+        src_table = ir.Table(
+            ast_node=None, level=ir.Level.INTERNAL, columns=columns
+        )
 
     if expr.where is not None:
         condition_expr = compile_expression(

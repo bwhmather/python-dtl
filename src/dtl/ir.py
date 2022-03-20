@@ -53,18 +53,23 @@ class PickExpression(Expression):
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class IndexExpression(Expression):
+    """
+    Evaluates to an array of indexes into source, sorted so that the values they
+    point to are in ascending order.
+    """
+
     source: Expression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class JoinLeftExpression(Expression):
     source_a: Expression
-    source_b: Expression
+    shape_b: Shape
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class JoinRightExpression(Expression):
-    source_a: Expression
+    shape_a: Shape
     source_b: Expression
 
 
@@ -88,6 +93,12 @@ class MultiplyExpression(Expression):
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class DivideExpression(Expression):
+    source_a: Expression
+    source_b: Expression
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class EqualToExpression(Expression):
     source_a: Expression
     source_b: Expression
 
@@ -154,7 +165,9 @@ class Program:
 def _transform_children(
     expr: Expression, *, transform: Callable[[Expression], Expression]
 ) -> Expression:
-    raise NotImplementedError()
+    raise NotImplementedError(
+        f"_transform_children not implemented for {type(expr).__name__}"
+    )
 
 
 @_transform_children.register(ImportExpression)
@@ -221,15 +234,15 @@ def _transform_join_left_expr_children(
     expr: JoinLeftExpression, *, transform: Callable[[Expression], Expression]
 ) -> JoinLeftExpression:
     source_a = transform(expr.source_a)
-    source_b = transform(expr.source_b)
 
-    if source_a is expr.source_a and source_b is expr.source_b:
+    if source_a is expr.source_a:
         return expr
 
     return JoinLeftExpression(
         dtype=expr.dtype,
+        shape=expr.shape,
         source_a=source_a,
-        source_b=source_b,
+        shape_b=expr.shape_b,
     )
 
 
@@ -237,18 +250,15 @@ def _transform_join_left_expr_children(
 def _transform_join_right_expr_children(
     expr: JoinRightExpression, *, transform: Callable[[Expression], Expression]
 ) -> JoinRightExpression:
-    source_a = transform(expr.source_a)
     source_b = transform(expr.source_b)
 
-    if source_a is expr.source_a and source_b is expr.source_b:
+    if source_b is expr.source_b:
         return expr
-
-    assert source_a.shape == source_b.shape
 
     return JoinRightExpression(
         dtype=expr.dtype,
-        shape=source_a.shape,
-        source_a=source_a,
+        shape=expr.shape,
+        shape_a=expr.shape_a,
         source_b=source_b,
     )
 
@@ -291,7 +301,9 @@ def dependencies(expr: Expression) -> Iterable[Expression]:
     """
     Yields the direct dependencies of the given expression.
     """
-    raise NotImplementedError()
+    raise NotImplementedError(
+        f"dependencies not implemented for {type(expr).__name__}"
+    )
 
 
 @dependencies.register(ImportExpression)
@@ -328,14 +340,12 @@ def _get_join_left_expr_dependencies(
     expr: JoinLeftExpression,
 ) -> Iterable[Expression]:
     yield expr.source_a
-    yield expr.source_b
 
 
 @dependencies.register(JoinRightExpression)
 def _get_join_right_expr_dependencies(
     expr: JoinRightExpression,
 ) -> Iterable[Expression]:
-    yield expr.source_a
     yield expr.source_b
 
 
@@ -364,6 +374,14 @@ def _get_multiply_expr_dependencies(
 @dependencies.register(DivideExpression)
 def _get_divide_expr_dependencies(
     expr: DivideExpression,
+) -> Iterable[Expression]:
+    yield expr.source_a
+    yield expr.source_b
+
+
+@dependencies.register(EqualToExpression)
+def _get_divide_expr_dependencies(
+    expr: EqualToExpression,
 ) -> Iterable[Expression]:
     yield expr.source_a
     yield expr.source_b

@@ -72,3 +72,38 @@ def test_precedence():
 
     outputs = evaluate(src, inputs)
     assert outputs["output"] == pa.table({"r": [32, 114]})
+
+
+def test_join_on_simple():
+    src = """
+    WITH a AS IMPORT 'input_a';
+    WITH b AS IMPORT 'input_b';
+    WITH output AS
+        SELECT key, a.value AS a, b.value AS b
+        FROM a
+        JOIN b ON a.key = b.key;
+    EXPORT output TO 'output';
+    """
+
+    inputs = {
+        "input_a": pa.table(
+            {
+                "key": [1, 2, 3, 4, 5],
+                "value": ["one", "two", "three", "four", "five"],
+            }
+        ),
+        "input_b": pa.table(
+            {
+                "key": [4, 3, 1],
+                "value": ["FOUR", "THREE", "ONE"],
+            }
+        ),
+    }
+    outputs = evaluate(src, inputs)
+    assert outputs["output"] == pa.table(
+        {
+            "key": [1, 3, 4],
+            "a": ["one", "three", "four"],
+            "b": ["ONE", "THREE", "FOUR"],
+        }
+    )
