@@ -15,15 +15,6 @@ class DType(enum.Enum):
     TEXT = "TEXT"
     BYTES = "BYTES"
     INDEX = "INDEX"
-    SHAPE = "SHAPE"
-
-
-# === Shapes ===================================================================
-
-
-@dataclasses.dataclass(frozen=True, eq=False)
-class Shape:
-    pass
 
 
 # === Expressions ==============================================================
@@ -40,13 +31,19 @@ class ShapeExpression(Expression):
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class ImportShapeExpression(Expression):
+class ImportShapeExpression(ShapeExpression):
     location: str
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class WhereShapeExpression(Expression):
-    expression: Expression
+class WhereShapeExpression(ShapeExpression):
+    mask: ArrayExpression
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class JoinShapeExpression(ShapeExpression):
+    shape_a: ShapeExpression
+    shape_b: ShapeExpression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -63,14 +60,14 @@ class ImportExpression(ArrayExpression):
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class WhereExpression(ArrayExpression):
-    source: Expression
-    mask: Expression
+    source: ArrayExpression
+    mask: ArrayExpression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class PickExpression(ArrayExpression):
-    source: Expression
-    indexes: Expression
+    source: ArrayExpression
+    indexes: ArrayExpression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -80,7 +77,7 @@ class IndexExpression(ArrayExpression):
     point to are in ascending order.
     """
 
-    source: Expression
+    source: ArrayExpression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -90,8 +87,8 @@ class JoinLeftExpression(ArrayExpression):
     full, unfiltered inner join with the second array.
     """
 
-    shape_a: Shape
-    shape_b: Shape
+    shape_a: ShapeExpression
+    shape_b: ShapeExpression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -101,8 +98,8 @@ class JoinRightExpression(ArrayExpression):
     full, unfiltered inner join with the first array.
     """
 
-    shape_a: Shape
-    shape_b: Shape
+    shape_a: ShapeExpression
+    shape_b: ShapeExpression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -127,9 +124,9 @@ class JoinLeftEqualExpression(ArrayExpression):
 
     """
 
-    left: Expression
-    right: Expression
-    right_index: Expression
+    left: ArrayExpression
+    right: ArrayExpression
+    right_index: ArrayExpression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -154,39 +151,39 @@ class JoinRightEqualExpression(ArrayExpression):
 
     """
 
-    left: Expression
-    right: Expression
-    right_index: Expression
+    left: ArrayExpression
+    right: ArrayExpression
+    right_index: ArrayExpression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class AddExpression(ArrayExpression):
-    source_a: Expression
-    source_b: Expression
+    source_a: ArrayExpression
+    source_b: ArrayExpression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class SubtractExpression(ArrayExpression):
-    source_a: Expression
-    source_b: Expression
+    source_a: ArrayExpression
+    source_b: ArrayExpression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class MultiplyExpression(ArrayExpression):
-    source_a: Expression
-    source_b: Expression
+    source_a: ArrayExpression
+    source_b: ArrayExpression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class DivideExpression(ArrayExpression):
-    source_a: Expression
-    source_b: Expression
+    source_a: ArrayExpression
+    source_b: ArrayExpression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class EqualToExpression(Expression):
-    source_a: Expression
-    source_b: Expression
+class EqualToExpression(ArrayExpression):
+    source_a: ArrayExpression
+    source_b: ArrayExpression
 
 
 assert AddExpression.__hash__ is Expression.__hash__
@@ -372,6 +369,29 @@ def dependencies(expr: Expression) -> Iterable[Expression]:
     )
 
 
+@dependencies.register(ImportShapeExpression)
+def _get_import_shape_expr_dependencies(
+    expr: ImportShapeExpression,
+) -> Iterable[Expression]:
+    return
+    yield
+
+
+@dependencies.register(WhereShapeExpression)
+def _get_where_shape_expr_dependencies(
+    expr: WhereShapeExpression,
+) -> Iterable[Expression]:
+    yield expr.mask
+
+
+@dependencies.register(JoinShapeExpression)
+def _get_join_shape_expr_dependencies(
+    expr: JoinShapeExpression,
+) -> Iterable[Expression]:
+    yield expr.shape_a
+    yield expr.shape_b
+
+
 @dependencies.register(ImportExpression)
 def _get_import_expr_dependencies(
     expr: ImportExpression,
@@ -405,18 +425,16 @@ def _get_index_expr_dependencies(
 def _get_join_left_expr_dependencies(
     expr: JoinLeftExpression,
 ) -> Iterable[Expression]:
-    # TODO
-    return
-    yield
+    yield expr.shape_a
+    yield expr.shape_b
 
 
 @dependencies.register(JoinRightExpression)
 def _get_join_right_expr_dependencies(
     expr: JoinRightExpression,
 ) -> Iterable[Expression]:
-    # TODO
-    return
-    yield
+    yield expr.shape_a
+    yield expr.shape_b
 
 
 @dependencies.register(AddExpression)

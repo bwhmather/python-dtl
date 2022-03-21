@@ -21,86 +21,138 @@ class Context:
 
 
 @singledispatch
-def eval_expression(expression: ir.Expression, context: Context) -> pa.Array:
+def eval_expression(expression: ir.Expression, context: Context) -> None:
     raise NotImplementedError(
         f"eval_expression not implemented for {type(expression).__name__}"
     )
 
 
+@eval_expression.register(ir.ImportShapeExpression)
+def eval_import_shape_expression(
+    expression: ir.ImportShapeExpression, context: Context
+) -> int:
+    result = len(context.inputs[expression.location])
+    context.shapes[expression] = result
+
+
+@eval_expression.register(ir.WhereShapeExpression)
+def eval_where_shape_expression(
+    expression: ir.WhereShapeExpression, context: Context
+) -> int:
+    result = len(context.inputs[expression.location])
+    context.shapes[expression] = result
+
+
+@eval_expression.register(ir.JoinShapeExpression)
+def eval_join_shape_expression(
+    expression: ir.JoinShapeExpression, context: Context
+) -> int:
+    shape_a = context.shapes[expression.shape_a]
+    shape_b = context.shapes[expression.shape_b]
+    result = shape_a.as_py() * shape_b.as_py()
+    context.shapes[expression] = result
+
+
 @eval_expression.register(ir.ImportExpression)
 def eval_import_expression(
     expression: ir.ImportExpression, context: Context
-) -> pa.Array:
-    return context.inputs[expression.location][expression.name]
+) -> None:
+    result = context.inputs[expression.location][expression.name]
+    context.results[expression] = result
 
 
 @eval_expression.register(ir.WhereExpression)
 def eval_where_expression(
     expression: ir.WhereExpression, context: Context
-) -> pa.Array:
-    raise NotImplementedError()
+) -> None:
+    source = context.results[expression.source]
+    mask = context.results[expression.mask]
+    result = pac.filter(source, mask)
+    context.results[expression] = result
+
 
 @eval_expression.register(ir.PickExpression)
 def eval_pick_expression(
     expression: ir.PickExpression, context: Context
-) -> pa.Array:
+) -> None:
     source = context.results[expression.source]
     indexes = context.results[expression.indexes]
-    return source[indexes]
+    result = pac.take(source, indexes)
+    context.results[expression] = result
 
 
 @eval_expression.register(ir.JoinLeftExpression)
 def eval_join_left_expression(
     expression: ir.JoinLeftExpression, context: Context
-) -> pa.Array:
+) -> None:
     len_a = context.shapes[expression.shape_a]
     len_b = context.shapes[expression.shape_b]
-    return pa.chunked_array([[x for x in range(len_a) for _ in range(len_b)]])
+    result = pa.chunked_array(
+        [[x for x in range(len_a) for _ in range(len_b)]]
+    )
+    context.results[expression] = result
 
 
 @eval_expression.register(ir.JoinRightExpression)
 def eval_join_right_expression(
     expression: ir.JoinRightExpression, context: Context
-) -> pa.Array:
+) -> None:
     len_a = context.shapes[expression.shape_a]
     len_b = context.shapes[expression.shape_b]
-    return pa.chunked_array([[x for _ in range(len_a) for x in range(len_b)]])
+    result = pa.chunked_array(
+        [[x for _ in range(len_a) for x in range(len_b)]]
+    )
+    context.results[expression] = result
 
 
 @eval_expression.register(ir.AddExpression)
 def eval_add_expression(
     expression: ir.AddExpression, context: Context
-) -> pa.Array:
+) -> None:
     a = context.results[expression.source_a]
     b = context.results[expression.source_b]
-    return pac.add(a, b)
+    result = pac.add(a, b)
+    context.results[expression] = result
 
 
 @eval_expression.register(ir.SubtractExpression)
 def eval_subtract_expression(
     expression: ir.SubtractExpression, context: Context
-) -> pa.Array:
+) -> None:
     a = context.results[expression.source_a]
     b = context.results[expression.source_b]
-    return pac.subtract(a, b)
+    result = pac.subtract(a, b)
+    context.results[expression] = result
 
 
 @eval_expression.register(ir.MultiplyExpression)
 def eval_multiply_expression(
     expression: ir.MultiplyExpression, context: Context
-) -> pa.Array:
+) -> None:
     a = context.results[expression.source_a]
     b = context.results[expression.source_b]
-    return pac.multiply(a, b)
+    result = pac.multiply(a, b)
+    context.results[expression] = result
 
 
 @eval_expression.register(ir.DivideExpression)
 def eval_divide_expression(
     expression: ir.DivideExpression, context: Context
-) -> pa.Array:
+) -> None:
     a = context.results[expression.source_a]
     b = context.results[expression.source_b]
-    return pac.divide(a, b)
+    result = pac.divide(a, b)
+    context.results[expression] = result
+
+
+@eval_expression.register(ir.EqualToExpression)
+def eval_equal_to_expression(
+    expression: ir.EqualToExpression, context: Context
+) -> None:
+    a = context.results[expression.source_a]
+    b = context.results[expression.source_b]
+    result = pac.equal(a, b)
+    context.results[expression] = result
 
 
 def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
@@ -121,11 +173,7 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
     }
 
     for expression in ir.traverse_depth_first(roots):
-        result = eval_expression(expression, context=context)
-        context.results[expression] = result
-        if expression.shape in context.shapes:
-            assert context.shapes[expression.shape] == len(result)
-        context.shapes[expression.shape] = len(result)
+        eval_expression(expression, context=context)
 
     print(context)
 

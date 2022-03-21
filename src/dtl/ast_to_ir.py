@@ -396,7 +396,7 @@ def compile_select_table_expression(
         # Build table to act as environment for predicate.
         shape_a = src_table.columns[0].expression.shape
         shape_b = join_table.columns[0].expression.shape
-        shape_full = ir.Shape()
+        shape_full = ir.JoinShapeExpression(shape_a=shape_a, shape_b=shape_b)
 
         left_index_full = ir.JoinLeftExpression(
             dtype=ir.DType.INDEX,
@@ -456,7 +456,10 @@ def compile_select_table_expression(
         )
 
         # Apply the mask to create the output table.
-        shape = ir.Shape()
+        shape = ir.WhereShapeExpression(
+            mask=mask_expression,
+        )
+
         left_index = ir.WhereExpression(
             dtype=ir.DType.INDEX,
             shape=shape,
@@ -512,7 +515,7 @@ def compile_select_table_expression(
         )
         # TODO inject trace table.
 
-        shape = ir.Shape()
+        shape = ir.WhereShapeExpression(mask=condition_expr)
 
         columns = []
         for src_column in src_table.columns:
@@ -627,7 +630,7 @@ def compile_ast_to_ir(
     context = Context()
 
     for location, column_names in input_types.items():
-        shape = ir.Shape()
+        shape = ir.ImportShapeExpression(location=location)
 
         columns = []
         for name in column_names:
