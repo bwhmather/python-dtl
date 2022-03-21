@@ -51,7 +51,7 @@ def compile_expression(
     scope: ir.Table,
     program: ir.Program,
     context: Context,
-) -> ir.Expression:
+) -> ir.ArrayExpression:
     raise NotImplementedError(
         f"compile_expression not implemented for {type(expr).__name__}"
     )
@@ -64,7 +64,7 @@ def compile_column_reference_expression(
     scope: ir.Table,
     program: ir.Program,
     context: Context,
-) -> ir.Expression:
+) -> ir.ArrayExpression:
     if isinstance(expr.name, n.UnqualifiedColumnName):
         namespace = None
         name = expr.name.column_name
@@ -93,7 +93,7 @@ def compile_function_call_expression(
     scope: ir.Table,
     program: ir.Program,
     context: Context,
-) -> ir.Expression:
+) -> ir.ArrayExpression:
     if expr.name == "add":
         assert len(expr.arguments) == 2
 
@@ -128,7 +128,7 @@ def compile_add_expression(
     scope: ir.Table,
     program: ir.Program,
     context: Context,
-) -> ir.Expression:
+) -> ir.ArrayExpression:
     left = compile_expression(
         expr.left, scope=scope, program=program, context=context
     )
@@ -154,7 +154,7 @@ def compile_subtract_expression(
     scope: ir.Table,
     program: ir.Program,
     context: Context,
-) -> ir.Expression:
+) -> ir.ArrayExpression:
     left = compile_expression(
         expr.left, scope=scope, program=program, context=context
     )
@@ -180,7 +180,7 @@ def compile_multiply_expression(
     scope: ir.Table,
     program: ir.Program,
     context: Context,
-) -> ir.Expression:
+) -> ir.ArrayExpression:
     left = compile_expression(
         expr.left, scope=scope, program=program, context=context
     )
@@ -206,7 +206,7 @@ def compile_divide_expression(
     scope: ir.Table,
     program: ir.Program,
     context: Context,
-) -> ir.Expression:
+) -> ir.ArrayExpression:
     left = compile_expression(
         expr.left, scope=scope, program=program, context=context
     )
@@ -232,7 +232,7 @@ def compile_equal_to_expression(
     scope: ir.Table,
     program: ir.Program,
     context: Context,
-) -> ir.Expression:
+) -> ir.ArrayExpression:
     left = compile_expression(
         expr.left, scope=scope, program=program, context=context
     )
