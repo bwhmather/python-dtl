@@ -15,6 +15,7 @@ class DType(enum.Enum):
     TEXT = "TEXT"
     BYTES = "BYTES"
     INDEX = "INDEX"
+    SHAPE = "SHAPE"
 
 
 # === Shapes ===================================================================
@@ -30,30 +31,50 @@ class Shape:
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class Expression:
-    dtype: DType
-    shape: Shape
+    pass
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class ImportExpression(Expression):
+class ShapeExpression(Expression):
+    pass
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class ImportShapeExpression(Expression):
+    location: str
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class WhereShapeExpression(Expression):
+    expression: Expression
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class ArrayExpression(Expression):
+    dtype: DType
+    shape: ShapeExpression
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class ImportExpression(ArrayExpression):
     location: str
     name: str
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class WhereExpression(Expression):
+class WhereExpression(ArrayExpression):
     source: Expression
     mask: Expression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class PickExpression(Expression):
+class PickExpression(ArrayExpression):
     source: Expression
     indexes: Expression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class IndexExpression(Expression):
+class IndexExpression(ArrayExpression):
     """
     Evaluates to an array of indexes into source, sorted so that the values they
     point to are in ascending order.
@@ -63,7 +84,7 @@ class IndexExpression(Expression):
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class JoinLeftExpression(Expression):
+class JoinLeftExpression(ArrayExpression):
     """
     Evaluates to the array of indexes into the first array that would give a
     full, unfiltered inner join with the second array.
@@ -74,7 +95,7 @@ class JoinLeftExpression(Expression):
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class JoinRightExpression(Expression):
+class JoinRightExpression(ArrayExpression):
     """
     Evaluates to the array of indexes into the second array that would give a
     full, unfiltered inner join with the first array.
@@ -85,7 +106,7 @@ class JoinRightExpression(Expression):
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class JoinLeftEqualExpression(Expression):
+class JoinLeftEqualExpression(ArrayExpression):
     """
     Evaluates to an array of indexes into the left hand expression, where the
     value matches an equivalent value in the right expression.
@@ -112,7 +133,7 @@ class JoinLeftEqualExpression(Expression):
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class JoinRightEqualExpression(Expression):
+class JoinRightEqualExpression(ArrayExpression):
     """
     Evaluates to an array of indexes into the right hand expression, where the
     value matches an equivalent value in the left expression.
@@ -139,25 +160,25 @@ class JoinRightEqualExpression(Expression):
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class AddExpression(Expression):
+class AddExpression(ArrayExpression):
     source_a: Expression
     source_b: Expression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class SubtractExpression(Expression):
+class SubtractExpression(ArrayExpression):
     source_a: Expression
     source_b: Expression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class MultiplyExpression(Expression):
+class MultiplyExpression(ArrayExpression):
     source_a: Expression
     source_b: Expression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
-class DivideExpression(Expression):
+class DivideExpression(ArrayExpression):
     source_a: Expression
     source_b: Expression
 
