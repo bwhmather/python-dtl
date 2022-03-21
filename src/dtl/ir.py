@@ -264,15 +264,16 @@ def _transform_import_expr_children(
 def _transform_where_expr_children(
     expr: WhereExpression, *, transform: Callable[[Expression], Expression]
 ) -> WhereExpression:
+    shape = transform(expr.shape)
     source = transform(expr.source)
     mask = transform(expr.mask)
 
-    if source is expr.source and mask is expr.mask:
+    if shape is expr.shape and source is expr.source and mask is expr.mask:
         return expr
 
     return WhereExpression(
         dtype=expr.dtype,
-        shape=expr.shape,
+        shape=shape,
         source=source,
         mask=mask,
     )
@@ -282,15 +283,20 @@ def _transform_where_expr_children(
 def _transform_pick_expr_children(
     expr: PickExpression, *, transform: Callable[[Expression], Expression]
 ) -> PickExpression:
+    shape = transform(expr.shape)
     source = transform(expr.source)
     indexes = transform(expr.indexes)
 
-    if source is expr.source and indexes is expr.indexes:
+    if (
+        shape is expr.shape
+        and source is expr.source
+        and indexes is expr.indexes
+    ):
         return expr
 
     return PickExpression(
         dtype=expr.dtype,
-        shape=expr.shape,
+        shape=shape,
         source=source,
         indexes=indexes,
     )
@@ -300,14 +306,15 @@ def _transform_pick_expr_children(
 def _transform_index_expr_children(
     expr: IndexExpression, *, transform: Callable[[Expression], Expression]
 ) -> IndexExpression:
+    shape = transform(expr.shape)
     source = transform(expr.source)
 
-    if source is expr.source:
+    if shape is expr.shape and source is expr.source:
         return expr
 
     return IndexExpression(
         dtype=expr.dtype,
-        shape=source.shape,
+        shape=shape,
         source=source,
     )
 
@@ -316,31 +323,66 @@ def _transform_index_expr_children(
 def _transform_join_left_expr_children(
     expr: JoinLeftExpression, *, transform: Callable[[Expression], Expression]
 ) -> JoinLeftExpression:
-    return expr
+    shape = transform(expr.shape)
+    shape_a = transform(expr.shape_a)
+    shape_b = transform(expr.shape_b)
+
+    if (
+        shape is expr.shape
+        and shape_a is expr.shape_a
+        and shape_b is expr.shape_b
+    ):
+        return expr
+
+    return JoinLeftExpression(
+        dtype=expr.dtype,
+        shape=shape,
+        shape_a=shape_a,
+        shape_b=shape_b,
+    )
 
 
 @_transform_children.register(JoinRightExpression)
 def _transform_join_right_expr_children(
     expr: JoinRightExpression, *, transform: Callable[[Expression], Expression]
 ) -> JoinRightExpression:
-    return expr
+    shape = transform(expr.shape)
+    shape_a = transform(expr.shape_a)
+    shape_b = transform(expr.shape_b)
+
+    if (
+        shape is expr.shape
+        and shape_a is expr.shape_a
+        and shape_b is expr.shape_b
+    ):
+        return expr
+
+    return JoinRightExpression(
+        dtype=expr.dtype,
+        shape=shape,
+        shape_a=shape_a,
+        shape_b=shape_b,
+    )
 
 
 @_transform_children.register(AddExpression)
 def _transform_add_expr_children(
     expr: AddExpression, *, transform: Callable[[Expression], Expression]
 ) -> AddExpression:
+    shape = transform(expr.shape)
     source_a = transform(expr.source_a)
     source_b = transform(expr.source_b)
 
-    if source_a is expr.source_a and source_b is expr.source_b:
+    if (
+        shape is expr.shape
+        and source_a is expr.source_a
+        and source_b is expr.source_b
+    ):
         return expr
-
-    assert source_a.shape == source_b.shape
 
     return AddExpression(
         dtype=expr.dtype,
-        shape=source_a.shape,
+        shape=shape,
         source_a=source_a,
         source_b=source_b,
     )
