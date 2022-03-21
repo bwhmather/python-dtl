@@ -218,7 +218,7 @@ class Column:
     name: str
     namespaces: Set[Optional[str]]
 
-    expression: Expression
+    expression: ArrayExpression
 
 
 @dataclasses.dataclass(frozen=True)
