@@ -34,38 +34,37 @@ def eval_import_expression(
     return context.inputs[expression.location][expression.name]
 
 
-@eval_expression.register(ir.JoinLeftExpression)
-def eval_join_left_expression(
-    expression: ir.JoinLeftExpression, context: Context
-) -> pa.Array:
-    source = context.results[expression.source_a]
-    count = context.shapes[expression.shape_b]
-    return pa.chunked_array(source.chunks * count)
-
-
-@eval_expression.register(ir.JoinLeftExpression)
-def eval_join_left_expression(
-    expression: ir.JoinLeftExpression, context: Context
-) -> pa.Array:
-    source = context.results[expression.source_a]
-    count = context.shapes[expression.shape_b]
-    return pa.chunked_array(source.chunks * count)
-
-
-@eval_expression.register(ir.JoinLeftExpression)
-def eval_join_right_expression(
-    expression: ir.JoinLeftExpression, context: Context
-) -> pa.Array:
-    source = context.results[expression.source_b]
-    count = context.shapes[expression.shape_a]
-    raise NotImplementedError()
-
-
 @eval_expression.register(ir.WhereExpression)
 def eval_where_expression(
     expression: ir.WhereExpression, context: Context
 ) -> pa.Array:
     raise NotImplementedError()
+
+@eval_expression.register(ir.PickExpression)
+def eval_pick_expression(
+    expression: ir.PickExpression, context: Context
+) -> pa.Array:
+    source = context.results[expression.source]
+    indexes = context.results[expression.indexes]
+    return source[indexes]
+
+
+@eval_expression.register(ir.JoinLeftExpression)
+def eval_join_left_expression(
+    expression: ir.JoinLeftExpression, context: Context
+) -> pa.Array:
+    len_a = context.shapes[expression.shape_a]
+    len_b = context.shapes[expression.shape_b]
+    return pa.chunked_array([[x for x in range(len_a) for _ in range(len_b)]])
+
+
+@eval_expression.register(ir.JoinRightExpression)
+def eval_join_right_expression(
+    expression: ir.JoinRightExpression, context: Context
+) -> pa.Array:
+    len_a = context.shapes[expression.shape_a]
+    len_b = context.shapes[expression.shape_b]
+    return pa.chunked_array([[x for _ in range(len_a) for x in range(len_b)]])
 
 
 @eval_expression.register(ir.AddExpression)

@@ -14,6 +14,7 @@ class DType(enum.Enum):
     DOUBLE = "DOUBLE"
     TEXT = "TEXT"
     BYTES = "BYTES"
+    INDEX = "INDEX"
 
 
 # === Shapes ===================================================================
@@ -63,14 +64,78 @@ class IndexExpression(Expression):
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class JoinLeftExpression(Expression):
-    source_a: Expression
+    """
+    Evaluates to the array of indexes into the first array that would give a
+    full, unfiltered inner join with the second array.
+    """
+
+    shape_a: Shape
     shape_b: Shape
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class JoinRightExpression(Expression):
+    """
+    Evaluates to the array of indexes into the second array that would give a
+    full, unfiltered inner join with the first array.
+    """
+
     shape_a: Shape
-    source_b: Expression
+    shape_b: Shape
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class JoinLeftEqualExpression(Expression):
+    """
+    Evaluates to an array of indexes into the left hand expression, where the
+    value matches an equivalent value in the right expression.
+
+    If there are multiple matches then the index will be repeated.
+
+    Equivalent to, and generally compiled from:
+
+    .. python::
+
+        join_left = JoinLeftExpression(len(left), len(right))
+        join_right = JoinRightExpression(len(left), len(right))
+        mask = EqualToExpression(
+            PickExpression(left, join_left),
+            PickExpression(right, join_right)
+        )
+        join_left_equal = where(join_left, mask)
+
+    """
+
+    left: Expression
+    right: Expression
+    right_index: Expression
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class JoinRightEqualExpression(Expression):
+    """
+    Evaluates to an array of indexes into the right hand expression, where the
+    value matches an equivalent value in the left expression.
+
+    If there are multiple matches then the index will be repeated.
+
+    Equivalent to, and generally compiled from:
+
+    .. python::
+
+        join_left = JoinLeftExpression(len(left), len(right))
+        join_right = JoinRightExpression(len(left), len(right))
+        mask = EqualToExpression(
+            PickExpression(left, join_left),
+            PickExpression(right, join_right)
+        )
+        join_right_equal = where(join_right, mask)
+
+    """
+
+    left: Expression
+    right: Expression
+    right_index: Expression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -233,34 +298,14 @@ def _transform_index_expr_children(
 def _transform_join_left_expr_children(
     expr: JoinLeftExpression, *, transform: Callable[[Expression], Expression]
 ) -> JoinLeftExpression:
-    source_a = transform(expr.source_a)
-
-    if source_a is expr.source_a:
-        return expr
-
-    return JoinLeftExpression(
-        dtype=expr.dtype,
-        shape=expr.shape,
-        source_a=source_a,
-        shape_b=expr.shape_b,
-    )
+    return expr
 
 
 @_transform_children.register(JoinRightExpression)
 def _transform_join_right_expr_children(
     expr: JoinRightExpression, *, transform: Callable[[Expression], Expression]
 ) -> JoinRightExpression:
-    source_b = transform(expr.source_b)
-
-    if source_b is expr.source_b:
-        return expr
-
-    return JoinRightExpression(
-        dtype=expr.dtype,
-        shape=expr.shape,
-        shape_a=expr.shape_a,
-        source_b=source_b,
-    )
+    return expr
 
 
 @_transform_children.register(AddExpression)
@@ -318,14 +363,14 @@ def _get_import_expr_dependencies(
 def _get_where_expr_dependencies(
     expr: WhereExpression,
 ) -> Iterable[Expression]:
-    yield expr.source
     yield expr.mask
+    yield expr.source
 
 
 @dependencies.register(PickExpression)
 def _get_pick_expr_dependencies(expr: PickExpression) -> Iterable[Expression]:
-    yield expr.source
     yield expr.indexes
+    yield expr.source
 
 
 @dependencies.register(IndexExpression)
@@ -339,14 +384,18 @@ def _get_index_expr_dependencies(
 def _get_join_left_expr_dependencies(
     expr: JoinLeftExpression,
 ) -> Iterable[Expression]:
-    yield expr.source_a
+    # TODO
+    return
+    yield
 
 
 @dependencies.register(JoinRightExpression)
 def _get_join_right_expr_dependencies(
     expr: JoinRightExpression,
 ) -> Iterable[Expression]:
-    yield expr.source_b
+    # TODO
+    return
+    yield
 
 
 @dependencies.register(AddExpression)
@@ -380,7 +429,7 @@ def _get_divide_expr_dependencies(
 
 
 @dependencies.register(EqualToExpression)
-def _get_divide_expr_dependencies(
+def _get_equal_to_expr_dependencies(
     expr: EqualToExpression,
 ) -> Iterable[Expression]:
     yield expr.source_a

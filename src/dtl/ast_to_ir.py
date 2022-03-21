@@ -396,15 +396,29 @@ def compile_select_table_expression(
         # Build table to act as environment for predicate.
         shape_a = src_table.columns[0].expression.shape
         shape_b = join_table.columns[0].expression.shape
-        shape_joined = ir.Shape()
+        shape_full = ir.Shape()
 
+        left_index_full = ir.JoinLeftExpression(
+            dtype=ir.DType.INDEX,
+            shape=shape_full,
+            shape_a=shape_a,
+            shape_b=shape_b,
+        )
+        right_index_full = ir.JoinRightExpression(
+            dtype=ir.DType.INDEX,
+            shape=shape_full,
+            shape_a=shape_a,
+            shape_b=shape_b,
+        )
+
+        # Create a table to use as the context for the predicate.
         columns = []
         for column in src_table.columns:
-            column_expr = ir.JoinLeftExpression(
+            column_expr = ir.PickExpression(
                 dtype=column.expression.dtype,
-                shape=shape_joined,
-                source_a=column.expression,
-                shape_b=shape_b,
+                shape=shape_full,
+                source=column.expression,
+                indexes=left_index_full,
             )
             new_column = ir.Column(
                 name=column.name,
@@ -414,11 +428,69 @@ def compile_select_table_expression(
             columns.append(new_column)
 
         for column in join_table.columns:
-            column_expr = ir.JoinRightExpression(
+            column_expr = ir.PickExpression(
                 dtype=column.expression.dtype,
-                shape=shape_joined,
-                shape_a=shape_a,
-                source_b=column.expression,
+                shape=shape_full,
+                source=column.expression,
+                indexes=right_index_full,
+            )
+            new_column = ir.Column(
+                name=column.name,
+                namespaces={join_name, *column.namespaces},
+                expression=column_expr,
+            )
+            columns.append(new_column)
+
+        # Do not trace this table!  We'd like to be able to optimise it away.
+        # For tracing, we should generate a new table containing only the rows
+        # which evaluate to true.
+        join_table_full = ir.Table(
+            ast_node=None, level=ir.Level.INTERNAL, columns=columns
+        )
+
+        mask_expression = compile_expression(
+            join_clause.constraint.predicate,
+            program=program,
+            context=context,
+            scope=join_table_full,
+        )
+
+        # Apply the mask to create the output table.
+        shape = ir.Shape()
+        left_index = ir.WhereExpression(
+            dtype=ir.DType.INDEX,
+            shape=shape,
+            source=left_index_full,
+            mask=mask_expression,
+        )
+        right_index = ir.WhereExpression(
+            dtype=ir.DType.INDEX,
+            shape=shape,
+            source=right_index_full,
+            mask=mask_expression,
+        )
+
+        columns = []
+        for column in src_table.columns:
+            column_expr = ir.PickExpression(
+                dtype=column.expression.dtype,
+                shape=shape,
+                source=column.expression,
+                indexes=left_index,
+            )
+            new_column = ir.Column(
+                name=column.name,
+                namespaces={*column.namespaces},
+                expression=column_expr,
+            )
+            columns.append(new_column)
+
+        for column in join_table.columns:
+            column_expr = ir.PickExpression(
+                dtype=column.expression.dtype,
+                shape=shape,
+                source=column.expression,
+                indexes=right_index,
             )
             new_column = ir.Column(
                 name=column.name,
@@ -428,38 +500,7 @@ def compile_select_table_expression(
             columns.append(new_column)
 
         src_table = ir.Table(
-            ast_node=None, level=ir.Level.INTERNAL, columns=columns
-        )
-
-        # Construct predicate expression.
-        predicate_expr = compile_expression(
-            join_clause.constraint.predicate,
-            program=program,
-            context=context,
-            scope=src_table,
-        )
-
-        # Filter table using predicate.
-        shape = ir.Shape()
-
-        columns = []
-        for column in src_table.columns:
-            column_expr = ir.WhereExpression(
-                dtype=column.expression.dtype,
-                shape=shape,
-                source=column.expression,
-                mask=predicate_expr,
-            )
-
-            new_column = ir.Column(
-                name=column.name,
-                namespaces=column.namespaces,
-                expression=column_expr,
-            )
-            columns.append(new_column)
-
-        src_table = ir.Table(
-            ast_node=None, level=ir.Level.INTERNAL, columns=columns
+            ast_node=join_clause, level=ir.Level.INTERNAL, columns=columns
         )
 
     if expr.where is not None:
