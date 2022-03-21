@@ -39,7 +39,7 @@ def eval_import_shape_expression(
 def eval_where_shape_expression(
     expression: ir.WhereShapeExpression, context: Context
 ) -> None:
-    result = len(context.inputs[expression.location])
+    result = pac.sum(context.results[expression.mask]).as_py()
     context.shapes[expression] = result
 
 
@@ -49,7 +49,7 @@ def eval_join_shape_expression(
 ) -> None:
     shape_a = context.shapes[expression.shape_a]
     shape_b = context.shapes[expression.shape_b]
-    result = shape_a.as_py() * shape_b.as_py()
+    result = shape_a * shape_b
     context.shapes[expression] = result
 
 
