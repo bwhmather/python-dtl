@@ -15,8 +15,8 @@ from dtl.parser import parse
 
 @dataclass(frozen=True)
 class Context:
-    shapes: Dict[ir.Shape, int]
-    results: Dict[ir.Expression, pa.Array]
+    shapes: Dict[ir.ShapeExpression, int]
+    results: Dict[ir.ArrayExpression, pa.Array]
     inputs: Dict[str, pa.Table]
 
 
