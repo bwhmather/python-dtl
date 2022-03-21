@@ -30,7 +30,7 @@ def eval_expression(expression: ir.Expression, context: Context) -> None:
 @eval_expression.register(ir.ImportShapeExpression)
 def eval_import_shape_expression(
     expression: ir.ImportShapeExpression, context: Context
-) -> int:
+) -> None:
     result = len(context.inputs[expression.location])
     context.shapes[expression] = result
 
@@ -38,7 +38,7 @@ def eval_import_shape_expression(
 @eval_expression.register(ir.WhereShapeExpression)
 def eval_where_shape_expression(
     expression: ir.WhereShapeExpression, context: Context
-) -> int:
+) -> None:
     result = len(context.inputs[expression.location])
     context.shapes[expression] = result
 
@@ -46,7 +46,7 @@ def eval_where_shape_expression(
 @eval_expression.register(ir.JoinShapeExpression)
 def eval_join_shape_expression(
     expression: ir.JoinShapeExpression, context: Context
-) -> int:
+) -> None:
     shape_a = context.shapes[expression.shape_a]
     shape_b = context.shapes[expression.shape_b]
     result = shape_a.as_py() * shape_b.as_py()
