@@ -70,6 +70,28 @@ _generator = ParserGenerator(
 # === Literals =================================================================
 
 
+_generator.register(n.Boolean, [t.True_], value=lambda _: True)
+_generator.register(n.Boolean, [t.False_], value=lambda _: False)
+
+
+def _parse_float(raw):
+    return float(raw)
+
+
+_generator.register(
+    n.Float, [t.Float], value=lambda token: _parse_float(token.text)
+)
+
+
+def _parse_integer(raw):
+    return int(raw)
+
+
+_generator.register(
+    n.Integer, [t.Integer], value=lambda token: _parse_integer(token.text)
+)
+
+
 def _parse_string(raw):
     # TODO embarassing number of allocations.
     raw = raw[1:-1]
@@ -111,6 +133,9 @@ _generator.register(
 )
 
 _generator.register(n.ColumnReferenceExpression, [n.ColumnName])
+
+
+_generator.register(n.LiteralExpression, [n.Literal])
 
 
 _generator.register(

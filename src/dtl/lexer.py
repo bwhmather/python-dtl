@@ -17,6 +17,8 @@ _KEYWORD_TOKEN_CLASSES = {
     "IMPORT": t.Import,
     "EXPORT": t.Export,
     "TO": t.To,
+    "TRUE": t.True_,
+    "FALSE": t.False_,
 }
 
 
@@ -119,10 +121,18 @@ class _Tokenizer:
                     return t.String
 
         if "0" <= curr <= "9":
-            # TODO floats/octal/hex
+            # TODO octal/hex
             while self._peek() is not None and "0" <= self._peek() <= "9":
                 self._bump()
-            return t.Int
+
+            if self._peek() == ".":
+                self._bump()
+                while self._peek() is not None and "0" <= self._peek() <= "9":
+                    self._bump()
+                return t.Float
+
+            else:
+                return t.Integer
 
         if _is_id_start(curr):
             token = curr

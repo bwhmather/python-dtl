@@ -15,9 +15,33 @@ class Node:
 # === Literals =================================================================
 
 
+class Literal(Node):
+    pass
+
+
 @dataclass(frozen=True)
-class String(Node):
+class Boolean(Literal):
+    value: bool
+
+
+@dataclass(frozen=True)
+class Integer(Literal):
+    value: int
+
+
+@dataclass(frozen=True)
+class Float(Literal):
+    value: float
+
+
+@dataclass(frozen=True)
+class String(Literal):
     value: str
+
+
+@dataclass(frozen=True)
+class Bytes(Literal):
+    value: bytes
 
 
 # === Columns ==================================================================
@@ -54,6 +78,11 @@ class ColumnReferenceExpression(Expression):
     """
 
     name: ColumnName
+
+
+@dataclass(frozen=True)
+class LiteralExpression(Expression):
+    literal: Literal
 
 
 @dataclass(frozen=True)

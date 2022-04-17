@@ -16,7 +16,7 @@ class Token:
 # --- Literals ---
 
 
-class Int(Token):
+class Integer(Token):
     pass
 
 
@@ -116,6 +116,14 @@ class To(Token):
 
 
 class Using(Token):
+    pass
+
+
+class True_(Token):
+    pass
+
+
+class False_(Token):
     pass
 
 
@@ -299,7 +307,7 @@ __all__ = [
     "LineComment",
     "BlockComment",
     "Whitespace",
-    "Int",
+    "Integer",
     "Float",
     "Char",
     "Byte",
@@ -314,6 +322,8 @@ __all__ = [
     "Join",
     "On",
     "Where",
+    "True_",
+    "False_",
     "Semicolon",
     "Comma",
     "Dot",

@@ -53,6 +53,51 @@ def eval_join_shape_expression(
     context.shapes[expression] = result
 
 
+@eval_expression.register(ir.BooleanLiteralExpression)
+def eval_boolean_literal_expression(
+    expression: ir.BooleanLiteralExpression, context: Context
+) -> None:
+    shape = context.shapes[expression.shape]
+    result = pa.array([expression.value] * shape, type=pa.bool())
+    context.results[expression] = result
+
+
+@eval_expression.register(ir.IntegerLiteralExpression)
+def eval_integer_literal_expression(
+    expression: ir.IntegerLiteralExpression, context: Context
+) -> None:
+    shape = context.shapes[expression.shape]
+    result = pa.array([expression.value] * shape, type=pa.int64())
+    context.results[expression] = result
+
+
+@eval_expression.register(ir.FloatLiteralExpression)
+def eval_float_literal_expression(
+    expression: ir.FloatLiteralExpression, context: Context
+) -> None:
+    shape = context.shapes[expression.shape]
+    result = pa.array([expression.value] * shape, type=pa.float64())
+    context.results[expression] = result
+
+
+@eval_expression.register(ir.TextLiteralExpression)
+def eval_text_literal_expression(
+    expression: ir.TextLiteralExpression, context: Context
+) -> None:
+    shape = context.shapes[expression.shape]
+    result = pa.array([expression.value] * shape, type=pa.text())
+    context.results[expression] = result
+
+
+@eval_expression.register(ir.BytesLiteralExpression)
+def eval_bytes_literal_expression(
+    expression: ir.BytesLiteralExpression, context: Context
+) -> None:
+    shape = context.shapes[expression.shape]
+    result = pa.array([expression.value] * shape, type=pa.bytes())
+    context.results[expression] = result
+
+
 @eval_expression.register(ir.ImportExpression)
 def eval_import_expression(
     expression: ir.ImportExpression, context: Context

@@ -86,6 +86,57 @@ def compile_column_reference_expression(
     raise Exception(f"could not find {expr.name.column_name}")
 
 
+@compile_expression.register(n.LiteralExpression)
+def compile_literal_expression(
+    expr: n.LiteralExpression,
+    *,
+    scope: ir.Table,
+    program: ir.Program,
+    context: Context,
+) -> ir.ArrayExpression:
+    # TODO it might make more sense to compile literals to a single row array
+    # that is joined with the `scope` table.
+    # TODO handle tables with no columns.
+    shape = scope.columns[0].expression.shape
+
+    if isinstance(expr.literal, n.Boolean):
+        return ir.BooleanLiteralExpression(
+            dtype=ir.DType.BOOL,
+            shape=shape,
+            value=expr.literal.value,
+        )
+
+    if isinstance(expr.literal, n.Integer):
+        return ir.IntegerLiteralExpression(
+            dtype=ir.DType.INT32,
+            shape=shape,
+            value=expr.literal.value,
+        )
+
+    if isinstance(expr.literal, n.Float):
+        return ir.FloatLiteralExpression(
+            dtype=ir.DType.DOUBLE,
+            shape=shape,
+            value=expr.literal.value,
+        )
+
+    if isinstance(expr.literal, n.String):
+        return ir.TextLiteralExpression(
+            dtype=ir.DType.TEXT,
+            shape=shape,
+            value=expr.literal.value,
+        )
+
+    if isinstance(expr.literal, n.Bytes):
+        return ir.BytesLiteralExpression(
+            dtype=ir.DType.BYTES,
+            shape=shape,
+            value=expr.literal.value,
+        )
+
+    raise NotImplementedError()
+
+
 @compile_expression.register(n.FunctionCallExpression)
 def compile_function_call_expression(
     expr: n.FunctionCallExpression,
@@ -635,7 +686,7 @@ def compile_ast_to_ir(
         columns = []
         for name in column_names:
             column_expr = ir.ImportExpression(
-                dtype=ir.DType.DOUBLE,  # TODO
+                dtype=ir.DType.INT32,  # TODO
                 shape=shape,
                 location=location,
                 name=name,

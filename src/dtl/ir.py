@@ -53,6 +53,31 @@ class ArrayExpression(Expression):
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
+class BooleanLiteralExpression(ArrayExpression):
+    value: bool
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class IntegerLiteralExpression(ArrayExpression):
+    value: int
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class FloatLiteralExpression(ArrayExpression):
+    value: float
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class TextLiteralExpression(ArrayExpression):
+    value: str
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class BytesLiteralExpression(ArrayExpression):
+    value: str
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
 class ImportExpression(ArrayExpression):
     location: str
     name: str
@@ -432,6 +457,41 @@ def _get_join_shape_expr_dependencies(
 ) -> Iterable[Expression]:
     yield expr.shape_a
     yield expr.shape_b
+
+
+@dependencies.register(BooleanLiteralExpression)
+def _get_boolean_literal_expr_dependencies(
+    expr: BooleanLiteralExpression,
+) -> Iterable[Expression]:
+    yield expr.shape
+
+
+@dependencies.register(IntegerLiteralExpression)
+def _get_integer_literal_expr_dependencies(
+    expr: IntegerLiteralExpression,
+) -> Iterable[Expression]:
+    yield expr.shape
+
+
+@dependencies.register(FloatLiteralExpression)
+def _get_float_literal_expr_dependencies(
+    expr: FloatLiteralExpression,
+) -> Iterable[Expression]:
+    yield expr.shape
+
+
+@dependencies.register(TextLiteralExpression)
+def _get_text_literal_expr_dependencies(
+    expr: TextLiteralExpression,
+) -> Iterable[Expression]:
+    yield expr.shape
+
+
+@dependencies.register(BytesLiteralExpression)
+def _get_bytes_literal_expr_dependencies(
+    expr: BytesLiteralExpression,
+) -> Iterable[Expression]:
+    yield expr.shape
 
 
 @dependencies.register(ImportExpression)
