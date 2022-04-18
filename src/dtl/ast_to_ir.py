@@ -188,7 +188,9 @@ def compile_add_expression(
     )
 
     if left.dtype != right.dtype:
-        raise Exception("Type error")
+        raise Exception(
+            f"Type error: cannot add {right.dtype} to {left.dtype}"
+        )
 
     if left.shape != right.shape:
         raise AssertionError("Shape mismatch error")
@@ -214,7 +216,9 @@ def compile_subtract_expression(
     )
 
     if left.dtype != right.dtype:
-        raise Exception("Type error")
+        raise Exception(
+            f"Type error: cannot subtract {right.dtype} from {left.dtype}"
+        )
 
     if left.shape != right.shape:
         raise AssertionError("Shape mismatch error")
@@ -240,7 +244,9 @@ def compile_multiply_expression(
     )
 
     if left.dtype != right.dtype:
-        raise Exception("Type error")
+        raise Exception(
+            f"Type error: cannot multiply {left.dtype} by {left.dtype}"
+        )
 
     if left.shape != right.shape:
         raise AssertionError("Shape mismatch error")
@@ -266,7 +272,9 @@ def compile_divide_expression(
     )
 
     if left.dtype != right.dtype:
-        raise Exception("Type error")
+        raise Exception(
+            f"Type error: cannot divide {left.dtype} by {left.dtype}"
+        )
 
     if left.shape != right.shape:
         raise AssertionError("Shape mismatch error")
@@ -292,7 +300,9 @@ def compile_equal_to_expression(
     )
 
     if left.dtype != right.dtype:
-        raise Exception("Type error")
+        raise Exception(
+            f"Type error: cannot compare {left.dtype} to {left.dtype}"
+        )
 
     if left.shape != right.shape:
         raise AssertionError("Shape mismatch error")
