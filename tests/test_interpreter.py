@@ -107,3 +107,49 @@ def test_join_on_simple():
             "b": ["ONE", "THREE", "FOUR"],
         }
     )
+
+
+def test_add_literal():
+    src = """
+    WITH input AS IMPORT 'input';
+    WITH output AS SELECT a + 1 AS a_plus_one FROM input;
+    EXPORT output TO 'output';
+    """
+    inputs = {"input": pa.table({"a": [1, 2, 3]})}
+    outputs = evaluate(src, inputs)
+    assert outputs["output"] == pa.table({"a_plus_one": [2, 3, 4]})
+
+
+def test_join_on_less_simple():
+    src = """
+    WITH a AS IMPORT 'input_a';
+    WITH b AS IMPORT 'input_b';
+    WITH output AS
+        SELECT key, a.value AS a, b.value AS b
+        FROM a
+        JOIN b ON a.key + 1 = b.key;
+    EXPORT output TO 'output';
+    """
+
+    inputs = {
+        "input_a": pa.table(
+            {
+                "key": [1, 2, 3, 4, 5],
+                "value": ["one", "two", "three", "four", "five"],
+            }
+        ),
+        "input_b": pa.table(
+            {
+                "key": [4, 3, 1],
+                "value": ["FOUR", "THREE", "ONE"],
+            }
+        ),
+    }
+    outputs = evaluate(src, inputs)
+    assert outputs["output"] == pa.table(
+        {
+            "key": [2, 3],
+            "a": ["two", "three"],
+            "b": ["THREE", "FOUR"],
+        }
+    )
