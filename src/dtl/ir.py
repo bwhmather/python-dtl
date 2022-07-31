@@ -11,6 +11,7 @@ from dtl import nodes as n
 class DType(enum.Enum):
     BOOL = "BOOL"
     INT32 = "INT32"
+    INT64 = "INT64"
     DOUBLE = "DOUBLE"
     TEXT = "TEXT"
     BYTES = "BYTES"
