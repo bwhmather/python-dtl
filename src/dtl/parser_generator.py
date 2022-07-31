@@ -1,8 +1,24 @@
 import dataclasses
 import typing
-from typing import Annotated, List, Optional, Union, get_type_hints
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    TypeVar,
+    Union,
+    cast,
+    get_type_hints,
+)
 
 import lalr
+
+T = TypeVar("T")
+TT = TypeVar("TT")
+NT = TypeVar("NT")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -16,25 +32,26 @@ class ParseError(Exception):
 
 def _is_list_type(cls: type) -> bool:
     while hasattr(cls, "__origin__"):
-        cls = cls.__origin__
+        cls = cls.__origin__  # type: ignore
 
     return cls is list
 
 
-def _list_item_type(cls: type) -> bool:
+def _list_item_type(cls: type) -> type:
     assert _is_list_type(cls)
-    while cls.__origin__ != list:
-        cls = cls.__origin__
 
-    return cls.__args__[0]
+    while cls.__origin__ != list:  # type: ignore
+        cls = cls.__origin__  # type: ignore
+
+    return cls.__args__[0]  # type: ignore
 
 
-def _list_delimiter(cls: type) -> Optional[str]:
+def _list_delimiter(cls: type[list]) -> Optional[Any]:
     assert _is_list_type(cls)
     if not hasattr(cls, "__metadata__"):
         return None
 
-    for tag in cls.__metadata__:
+    for tag in cls.__metadata__:  # type: ignore
         if not isinstance(tag, Delimiter):
             continue
         return tag.delimiter
@@ -60,8 +77,8 @@ def _optional_item_type(cls: type) -> type:
         if variant is not type(None)
     )
     if len(variants) == 1:
-        return variants[0]
-    return Union[(*variants,)]
+        return variants[0]  # type: ignore
+    return Union[(*variants,)]  # type: ignore
 
 
 def _is_subclass(cls: type, base: type) -> bool:
@@ -87,12 +104,12 @@ def _is_subclass(cls: type, base: type) -> bool:
         raise
 
 
-def _create_empty_instance(cls):
+def _create_empty_instance(cls: type[T]) -> T:
     if _is_list_type(cls):
-        return []
+        return []  # type: ignore
 
     if _is_optional_type(cls):
-        return None
+        return None  # type: ignore
 
     if dataclasses.is_dataclass(cls):
         kwargs = {
@@ -104,12 +121,12 @@ def _create_empty_instance(cls):
     raise NotImplementedError(f"can't create empty instance for {cls}")
 
 
-class UniqueQueue:
+class UniqueQueue(Generic[T]):
     """
     A FIFO queue from which unique values can only be popped once.
     """
 
-    def __init__(self, initial_values=[]):
+    def __init__(self, initial_values: list[T] = []):
         self.__cursor = 0
         self.__list = list()
         self.__set = set()
@@ -117,21 +134,21 @@ class UniqueQueue:
             self.__list.append(value)
             self.__set.add(value)
 
-    def push(self, value):
+    def push(self, value: T) -> None:
         if value not in self.__set:
             self.__list.append(value)
             self.__set.add(value)
 
-    def pop(self):
+    def pop(self) -> T:
         value = self.__list[self.__cursor]
         self.__cursor += 1
         return value
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.__list) - self.__cursor
 
 
-def _describe(symbol):
+def _describe(symbol: Any) -> str:
     if _is_optional_type(symbol):
         cls = _optional_item_type(symbol)
     elif _is_list_type(symbol):
@@ -142,7 +159,7 @@ def _describe(symbol):
     return cls.__name__
 
 
-def _or_list(values):
+def _or_list(values: Iterable[Any]) -> str:
     # Values may not be sortable so we convert to strings first.
     names = sorted(str(value) for value in values)
     if len(names) > 1:
@@ -151,8 +168,15 @@ def _or_list(values):
         return names[0]
 
 
-class Parser:
-    def __init__(self, productions, *, precedence_sets, target, actions):
+class Parser(Generic[TT, NT]):
+    def __init__(
+        self,
+        productions: list[lalr.Production],
+        *,
+        precedence_sets: list[lalr.Precedence],
+        target: type[NT],
+        actions: dict[lalr.Production, Callable],
+    ):
         self._productions = productions
         self._grammar = lalr.Grammar(
             productions, precedence_sets=precedence_sets
@@ -161,26 +185,30 @@ class Parser:
         self._actions = actions
 
     @staticmethod
-    def _token_symbol(token):
+    def _token_symbol(token: TT) -> type[TT]:
         return type(token)
 
     @staticmethod
-    def _token_value(token):
+    def _token_value(token: TT) -> TT:
         return token
 
-    def _action(self, production, *values):
+    def _action(self, production: lalr.Production, *values: TT | NT) -> NT:
         action = self._actions[production]
         result = action(*values)
-        return result
+        return cast(NT, result)
 
-    def parse(self, tokens):
+    # TODO should be possible to bound return type to the target type.
+    def parse(self, tokens: Iterable[TT]) -> NT:
         try:
-            return lalr.parse(
-                self._parse_table,
-                tokens,
-                action=self._action,
-                token_symbol=self._token_symbol,
-                token_value=self._token_value,
+            return cast(
+                NT,
+                lalr.parse(
+                    self._parse_table,
+                    tokens,
+                    action=self._action,
+                    token_symbol=self._token_symbol,
+                    token_value=self._token_value,
+                ),
             )
         except lalr.exceptions.ParseError as exc:
             print(self)
@@ -192,11 +220,11 @@ class Parser:
                 f"before {lookahead_token if lookahead_token is not None else 'EOF'}"
             ) from exc
 
-    def __str__(self):
-        def _symbol_repr(symbol):
+    def __str__(self) -> str:
+        def _symbol_repr(symbol: type[NT | TT]) -> str:
             if _is_list_type(symbol):
                 item_type = _symbol_repr(_list_item_type(symbol))
-                delimiter = _symbol_repr(_list_delimiter(symbol))
+                delimiter = _symbol_repr(_list_delimiter(symbol))  # type: ignore
                 if delimiter:
                     return f"List[{item_type}, delimiter={delimiter}]"
                 else:
@@ -226,27 +254,47 @@ class Parser:
         return buff.getvalue()
 
 
-class ParserGenerator:
-    def __init__(self, *, token_type, node_type, default_actions):
+class ParserGenerator(Generic[TT, NT]):
+    # TODO `type[T]` is covariant rather than invariant.
+    def __init__(
+        self,
+        *,
+        token_type: type[TT],
+        node_type: type[NT],
+        default_actions: dict[str, Callable],
+    ):
         self.token_type = token_type
         self.node_type = node_type
         self._default_actions = default_actions
 
-        self._productions = []
-        self._actions = {}
+        self._productions: list[lalr.Production] = []
+        self._actions: dict[lalr.Production, Callable] = {}
 
-        self._precedence_sets = []
+        self._precedence_sets: list[lalr.Precedence] = []
 
-    def _add_production(self, cls, pattern, *, action):
+    def _add_production(
+        self,
+        cls: Any,
+        pattern: list[
+            type[NT] | type[TT] | type[Optional[NT]] | type[Optional[TT]]
+        ],
+        *,
+        action: Callable,
+    ) -> lalr.Production:
         production = lalr.Production(cls, pattern)
         self._productions.append(production)
         self._actions[production] = action
         print(production)
         return production
 
-    def register(self, cls, pattern, **actions):
-        pattern = tuple(pattern)
-
+    def register(
+        self,
+        cls: type[NT],
+        pattern: list[
+            type[NT] | type[TT] | type[Optional[NT]] | type[Optional[TT]]
+        ],
+        **actions: Callable,
+    ) -> None:
         if not issubclass(cls, self.node_type):
             raise TypeError(f"{cls} is not a subclass of {self.node_type}")
 
@@ -266,7 +314,7 @@ class ParserGenerator:
 
         actions = {**self._default_actions, **actions}
         pattern_iter = iter(enumerate(pattern))
-        names = [None] * len(pattern)
+        names: list[Optional[str]] = [None] * len(pattern)
 
         fields = dataclasses.fields(cls)
         hints = get_type_hints(cls, globalns=None, localns=None)
@@ -285,9 +333,8 @@ class ParserGenerator:
                     break
 
             names[index] = field.name
-        names = tuple(names)
 
-        def _action(*args):
+        def _action(*args: TT | NT | None) -> NT:
             kwargs = {
                 name: value
                 for name, value in zip(names, args)
@@ -301,20 +348,20 @@ class ParserGenerator:
 
         self._add_production(cls, pattern, action=_action)
 
-    def left(self, *args):
+    def left(self, *args: type[TT]) -> None:
         self._precedence_sets.append(lalr.Left(*args))
 
-    def right(self, *args):
+    def right(self, *args: type[TT]) -> None:
         self._precedence_sets.append(lalr.Right(*args))
 
-    def precedence(self, *args):
+    def precedence(self, *args: type[TT]) -> None:
         self._precedence_sets.append(lalr.Precedence(*args))
 
-    def _create_superclass_productions(self):
+    def _create_superclass_productions(self) -> None:
         """
         Add productions to automatically cast sub classes to their super class.
         """
-        subclasses = UniqueQueue()
+        subclasses: UniqueQueue[type[TT] | type[NT]] = UniqueQueue()
         for production in self._productions:
             cls = production.name
             if _is_list_type(cls):
@@ -331,11 +378,11 @@ class ParserGenerator:
                 if supercls is self.node_type:
                     continue
                 self._add_production(
-                    supercls, (subcls,), action=lambda node: node
+                    supercls, [subcls], action=lambda node: node
                 )
                 subclasses.push(supercls)
 
-    def _create_list_productions(self):
+    def _create_list_productions(self) -> None:
         _appears_in_list = set()
         for production in self._productions:
             for symbol in production.symbols:
@@ -347,33 +394,37 @@ class ParserGenerator:
         for cls, delimiter in _appears_in_list:
             if delimiter:
 
-                def _reduce_first(node):
+                def _reduce_first(node):  # type: ignore
                     return [node]
 
-                def _reduce_subsequent(prev, delimiter, node):
+                def _reduce_subsequent(prev, delimiter, node):  # type: ignore
                     return prev + [node]
 
-                name = Annotated[List[cls], Delimiter(delimiter)]
-                self._add_production(name, (cls,), action=_reduce_first)
+                name = Annotated[List[cls], Delimiter(delimiter)]  # type: ignore
+                self._add_production(name, [cls], action=_reduce_first)
                 self._add_production(
-                    name, (name, delimiter, cls), action=_reduce_subsequent
+                    name,
+                    [name, delimiter, cls],  # type: ignore
+                    action=_reduce_subsequent,
                 )
 
             else:
 
-                def _reduce_first(node):
+                def _reduce_first(node):  # type: ignore
                     return [node]
 
-                def _reduce_subsequent(prev, node):
+                def _reduce_subsequent(prev, node):  # type: ignore
                     return prev + [node]
 
-                name = List[cls]
-                self._add_production(name, (cls,), action=_reduce_first)
+                name = List[cls]  # type: ignore
+                self._add_production(name, [cls], action=_reduce_first)
                 self._add_production(
-                    name, (name, cls), action=_reduce_subsequent
+                    name,
+                    [name, cls],  # type: ignore
+                    action=_reduce_subsequent,
                 )
 
-    def _create_optional_productions(self):
+    def _create_optional_productions(self) -> None:
         appears_in_optional = set()
 
         for production in self._productions:
@@ -383,11 +434,11 @@ class ParserGenerator:
 
         for cls in appears_in_optional:
             self._add_production(
-                Optional[cls], (cls,), action=lambda value: value
+                Optional[cls], [cls], action=lambda value: value
             )
 
-    def _create_empty_variants(self):
-        empty_queue = UniqueQueue()
+    def _create_empty_variants(self) -> None:
+        empty_queue: UniqueQueue[type[TT] | type[NT]] = UniqueQueue()
 
         for production in self._productions:
             for symbol in production.symbols:
@@ -410,10 +461,10 @@ class ParserGenerator:
                             empty_queue.push(production.name)
                         else:
 
-                            def _create_action(
-                                production, index, empty_symbol
-                            ):
-                                def _action(*args):
+                            def _create_action(  # type: ignore
+                                production, index, empty_symbol  # type: ignore
+                            ):  # type: ignore
+                                def _action(*args):  # type: ignore
                                     return self._actions[production](
                                         *args[:index],
                                         _create_empty_instance(empty_symbol),
@@ -432,7 +483,7 @@ class ParserGenerator:
                             )
                             expand_queue.push(new_production)
 
-    def parser(self, *, target):
+    def parser(self, *, target: type[NT]) -> Parser[TT, NT]:
         self._create_superclass_productions()
         self._create_empty_variants()
         self._create_list_productions()
