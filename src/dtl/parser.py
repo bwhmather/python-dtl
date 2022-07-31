@@ -1,11 +1,14 @@
-from typing import Annotated, List, Optional
+from typing import Annotated, Iterable, List, Optional
 
 import dtl.nodes as n
 import dtl.tokens as t
 from dtl.parser_generator import Delimiter, ParserGenerator
+from dtl.types import Location
 
 
-def _start(node):
+def _start(
+    node: t.Token | list[t.Token] | n.Node | list[n.Node] | None,
+) -> Optional[Location]:
     if isinstance(node, list):
         for item in node:
             start = _start(item)
@@ -25,7 +28,7 @@ def _start(node):
     raise AssertionError(f"node {node!r} has no start")
 
 
-def _start_action(*args):
+def _start_action(*args: t.Token | n.Node | None) -> Optional[Location]:
     for arg in args:
         start = _start(arg)
         if start:
@@ -33,10 +36,12 @@ def _start_action(*args):
     return None
 
 
-def _end(node):
+def _end(
+    node: t.Token | list[t.Token] | n.Node | list[n.Node] | None,
+) -> Optional[Location]:
     if isinstance(node, list):
         for item in reversed(node):
-            end = _end(item)
+            end = _end(item)  # type: ignore
             if end:
                 return end
         return None
@@ -53,7 +58,7 @@ def _end(node):
     raise AssertionError(f"node {node!r} has no end")
 
 
-def _end_action(*args):
+def _end_action(*args: t.Token | n.Node | None) -> Optional[Location]:
     for arg in reversed(args):
         end = _end(arg)
         if end:
@@ -74,7 +79,7 @@ _generator.register(n.Boolean, [t.True_], value=lambda _: True)
 _generator.register(n.Boolean, [t.False_], value=lambda _: False)
 
 
-def _parse_float(raw):
+def _parse_float(raw: str) -> float:
     return float(raw)
 
 
@@ -83,7 +88,7 @@ _generator.register(
 )
 
 
-def _parse_integer(raw):
+def _parse_integer(raw: str) -> int:
     return int(raw)
 
 
@@ -92,7 +97,7 @@ _generator.register(
 )
 
 
-def _parse_string(raw):
+def _parse_string(raw: str) -> str:
     # TODO embarassing number of allocations.
     raw = raw[1:-1]
     out = ""
@@ -144,7 +149,7 @@ _generator.register(
     [
         t.Name,
         t.OpenParen,
-        Annotated[List[n.Expression], Delimiter(t.Comma)],
+        Annotated[List[n.Expression], Delimiter(t.Comma)],  # type: ignore
         t.CloseParen,
     ],
     name=lambda token, *_: token.text,
@@ -244,7 +249,7 @@ _generator.register(
     [
         t.Using,
         t.OpenParen,
-        Annotated[List[n.UnqualifiedColumnName], Delimiter(t.Comma)],
+        Annotated[List[n.UnqualifiedColumnName], Delimiter(t.Comma)],  # type: ignore
         t.CloseParen,
     ],
 )
@@ -260,7 +265,11 @@ _generator.register(n.WhereClause, [t.Where, n.Expression])
 
 _generator.register(
     n.GroupByClause,
-    [t.Group, t.By, Annotated[List[n.Expression], Delimiter(t.Comma)]],
+    [
+        t.Group,
+        t.By,
+        Annotated[List[n.Expression], Delimiter(t.Comma)],  # type: ignore
+    ],
     consecutive=lambda *_: False,
 )
 _generator.register(
@@ -269,7 +278,7 @@ _generator.register(
         t.Group,
         t.Consecutive,
         t.By,
-        Annotated[List[n.Expression], Delimiter(t.Comma)],
+        Annotated[List[n.Expression], Delimiter(t.Comma)],  # type: ignore
     ],
     consecutive=lambda *_: True,
 )
@@ -280,12 +289,12 @@ _generator.register(
     n.SelectExpression,
     [
         t.Select,
-        Optional[n.DistinctClause],
-        Annotated[List[n.ColumnBinding], Delimiter(t.Comma)],
+        Optional[n.DistinctClause],  # type: ignore
+        Annotated[List[n.ColumnBinding], Delimiter(t.Comma)],  # type: ignore
         n.FromClause,
-        Annotated[List[n.JoinClause], Delimiter(t.Comma)],
-        Optional[n.WhereClause],
-        Optional[n.GroupByClause],
+        Annotated[List[n.JoinClause], Delimiter(t.Comma)],  # type: ignore
+        Optional[n.WhereClause],  # type: ignore
+        Optional[n.GroupByClause],  # type: ignore
     ],
 )
 
@@ -307,11 +316,11 @@ _generator.register(
     [t.Export, n.TableExpression, t.To, n.String, t.Semicolon],
 )
 
-_generator.register(n.StatementList, [List[n.Statement]])
+_generator.register(n.StatementList, [List[n.Statement]])  # type: ignore
 _parser = _generator.parser(target=n.StatementList)
 
 
-def _filter_tokens(tokens):
+def _filter_tokens(tokens: Iterable[t.Token]) -> Iterable[t.Token]:
     for token in tokens:
         if isinstance(token, t.LineComment):
             continue
@@ -325,5 +334,7 @@ def _filter_tokens(tokens):
         yield token
 
 
-def parse(tokens):
-    return _parser.parse(_filter_tokens(tokens))
+def parse(tokens: Iterable[t.Token]) -> n.StatementList:
+    statements = _parser.parse(_filter_tokens(tokens))
+    assert isinstance(statements, n.StatementList)
+    return statements
