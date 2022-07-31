@@ -28,7 +28,7 @@ class Context:
     inputs: Dict[str, ir.Table] = dataclasses.field(
         init=False, default_factory=dict
     )
-    globals: Dict[str, ir.Table] = dataclasses.field(
+    bindings: Dict[str, ir.Table] = dataclasses.field(
         init=False, default_factory=dict
     )
 
@@ -335,7 +335,7 @@ def compile_table_expression(
 def compile_reference_table_expression(
     expr: n.TableReferenceExpression, *, program: ir.Program, context: Context
 ) -> ir.Table:
-    src_table = context.globals[expr.name]
+    src_table = context.bindings[expr.name]
 
     table = ir.Table(
         ast_node=expr,
@@ -663,7 +663,7 @@ def compile_assignment_statement(
     )
     program.tables.append(stmt_table)
 
-    context.globals[stmt.target.name] = stmt_table
+    context.bindings[stmt.target.name] = stmt_table
 
 
 @compile_statement.register(n.ExportStatement)
