@@ -1,3 +1,44 @@
+[tool.poetry]
+name = "pydtl"
+version = "0.0.1"
+license = "Apache-2.0"
+description = "Python implementation of the Data Transformation Language"
+readme = "README.mkd"
+authors = ["Ben Mather <bwhmather@bwhmather.com>"]
+maintainers = ["Ben Mather <bwhmather@bwhmather.com>"]
+repository = "https://github.com/bwhmather/python-dtl"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache 2.0 License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Compilers",
+    "Topic :: Software Development :: Interpreters",
+]
+packages = [{include = "dtl", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+lalr = "^0.2.0"
+pyarrow = "^8.0.0"
+
+[tool.poetry.scripts]
+dtl = "dtl._main:main"
+
+[tool.poetry.dev-dependencies]
+black = "^22.6.0"
+isort = "^5.10.1"
+mypy = "^0.971"
+pyflakes = "^2.5.0"
+pylint = "^2.14.5"
+pytest = "^7.1.2"
+ssort = "^0.11.6"
+
 [tool.black]
 line_length = 79
 
@@ -5,3 +46,7 @@ line_length = 79
 profile = "black"
 multi_line_output = 3
 line_length = 79
+
+[build-system]
+requires = ["poetry_core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
