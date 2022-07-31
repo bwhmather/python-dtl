@@ -15,8 +15,8 @@ from dtl.parser import parse
 
 @dataclass(frozen=True)
 class Context:
+    arrays: Dict[ir.ArrayExpression, pa.Array]
     shapes: Dict[ir.ShapeExpression, int]
-    results: Dict[ir.ArrayExpression, pa.Array]
     inputs: Dict[str, pa.Table]
 
 
@@ -39,7 +39,7 @@ def eval_import_shape_expression(
 def eval_where_shape_expression(
     expression: ir.WhereShapeExpression, context: Context
 ) -> None:
-    result = pac.sum(context.results[expression.mask]).as_py()
+    result = pac.sum(context.arrays[expression.mask]).as_py()
     context.shapes[expression] = result
 
 
@@ -59,7 +59,7 @@ def eval_boolean_literal_expression(
 ) -> None:
     shape = context.shapes[expression.shape]
     result = pa.array([expression.value] * shape, type=pa.bool())
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.IntegerLiteralExpression)
@@ -68,7 +68,7 @@ def eval_integer_literal_expression(
 ) -> None:
     shape = context.shapes[expression.shape]
     result = pa.array([expression.value] * shape, type=pa.int64())
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.FloatLiteralExpression)
@@ -77,7 +77,7 @@ def eval_float_literal_expression(
 ) -> None:
     shape = context.shapes[expression.shape]
     result = pa.array([expression.value] * shape, type=pa.float64())
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.TextLiteralExpression)
@@ -86,7 +86,7 @@ def eval_text_literal_expression(
 ) -> None:
     shape = context.shapes[expression.shape]
     result = pa.array([expression.value] * shape, type=pa.text())
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.BytesLiteralExpression)
@@ -95,7 +95,7 @@ def eval_bytes_literal_expression(
 ) -> None:
     shape = context.shapes[expression.shape]
     result = pa.array([expression.value] * shape, type=pa.bytes())
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.ImportExpression)
@@ -103,27 +103,27 @@ def eval_import_expression(
     expression: ir.ImportExpression, context: Context
 ) -> None:
     result = context.inputs[expression.location][expression.name]
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.WhereExpression)
 def eval_where_expression(
     expression: ir.WhereExpression, context: Context
 ) -> None:
-    source = context.results[expression.source]
-    mask = context.results[expression.mask]
+    source = context.arrays[expression.source]
+    mask = context.arrays[expression.mask]
     result = pac.filter(source, mask)
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.PickExpression)
 def eval_pick_expression(
     expression: ir.PickExpression, context: Context
 ) -> None:
-    source = context.results[expression.source]
-    indexes = context.results[expression.indexes]
+    source = context.arrays[expression.source]
+    indexes = context.arrays[expression.indexes]
     result = pac.take(source, indexes)
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.JoinLeftExpression)
@@ -135,7 +135,7 @@ def eval_join_left_expression(
     result = pa.chunked_array(
         [[x for x in range(len_a) for _ in range(len_b)]]
     )
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.JoinRightExpression)
@@ -147,57 +147,57 @@ def eval_join_right_expression(
     result = pa.chunked_array(
         [[x for _ in range(len_a) for x in range(len_b)]]
     )
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.AddExpression)
 def eval_add_expression(
     expression: ir.AddExpression, context: Context
 ) -> None:
-    a = context.results[expression.source_a]
-    b = context.results[expression.source_b]
+    a = context.arrays[expression.source_a]
+    b = context.arrays[expression.source_b]
     result = pac.add(a, b)
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.SubtractExpression)
 def eval_subtract_expression(
     expression: ir.SubtractExpression, context: Context
 ) -> None:
-    a = context.results[expression.source_a]
-    b = context.results[expression.source_b]
+    a = context.arrays[expression.source_a]
+    b = context.arrays[expression.source_b]
     result = pac.subtract(a, b)
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.MultiplyExpression)
 def eval_multiply_expression(
     expression: ir.MultiplyExpression, context: Context
 ) -> None:
-    a = context.results[expression.source_a]
-    b = context.results[expression.source_b]
+    a = context.arrays[expression.source_a]
+    b = context.arrays[expression.source_b]
     result = pac.multiply(a, b)
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.DivideExpression)
 def eval_divide_expression(
     expression: ir.DivideExpression, context: Context
 ) -> None:
-    a = context.results[expression.source_a]
-    b = context.results[expression.source_b]
+    a = context.arrays[expression.source_a]
+    b = context.arrays[expression.source_b]
     result = pac.divide(a, b)
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 @eval_expression.register(ir.EqualToExpression)
 def eval_equal_to_expression(
     expression: ir.EqualToExpression, context: Context
 ) -> None:
-    a = context.results[expression.source_a]
-    b = context.results[expression.source_b]
+    a = context.arrays[expression.source_a]
+    b = context.arrays[expression.source_b]
     result = pac.equal(a, b)
-    context.results[expression] = result
+    context.arrays[expression] = result
 
 
 def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
@@ -210,7 +210,7 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
         },
     )
 
-    context = Context(shapes={}, results={}, inputs=inputs)
+    context = Context(shapes={}, arrays={}, inputs=inputs)
     roots = {
         column.expression
         for table in program.tables
@@ -226,7 +226,7 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
     for name, table in program.exports.items():
         exports[name] = pa.table(
             {
-                column.name: context.results[column.expression]
+                column.name: context.arrays[column.expression]
                 for column in table.columns
             }
         )
