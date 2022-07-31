@@ -22,11 +22,13 @@ _KEYWORD_TOKEN_CLASSES = {
 }
 
 
-def _is_whitespace(c: str) -> bool:
+def _is_whitespace(c: Optional[str]) -> bool:
     return c in (" ", "\n", "\t")
 
 
-def _is_id_start(c: str) -> bool:
+def _is_id_start(c: Optional[str]) -> bool:
+    if c is None:
+        return False
     if "a" <= c <= "z":
         return True
     if "A" <= c <= "Z":
@@ -36,7 +38,7 @@ def _is_id_start(c: str) -> bool:
     return False
 
 
-def _is_id_continue(c: str) -> bool:
+def _is_id_continue(c: Optional[str]) -> bool:
     if c is None:
         return False
     if "a" <= c <= "z":
@@ -122,12 +124,22 @@ class _Tokenizer:
 
         if "0" <= curr <= "9":
             # TODO octal/hex
-            while self._peek() is not None and "0" <= self._peek() <= "9":
+            while True:
+                n = self._peek()
+                if n is None:
+                    break
+                if "0" > n or n > "9":
+                    break
                 self._bump()
 
             if self._peek() == ".":
                 self._bump()
-                while self._peek() is not None and "0" <= self._peek() <= "9":
+                while True:
+                    n = self._peek()
+                    if n is None:
+                        break
+                    if "0" > n or n > "9":
+                        break
                     self._bump()
                 return t.Float
 
