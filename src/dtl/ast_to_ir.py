@@ -4,8 +4,11 @@ import dataclasses
 from functools import singledispatch
 from typing import Dict, Iterable, List
 
+import pyarrow as pa
+
 from dtl import ir as ir
 from dtl import nodes as n
+from dtl.io import Importer
 
 
 def _strip_namespaces(columns: List[ir.Column]) -> List[ir.Column]:
@@ -25,9 +28,7 @@ def _strip_namespaces(columns: List[ir.Column]) -> List[ir.Column]:
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class Context:
-    inputs: Dict[str, ir.Table] = dataclasses.field(
-        init=False, default_factory=dict
-    )
+    importer: Importer
     bindings: Dict[str, ir.Table] = dataclasses.field(
         init=False, default_factory=dict
     )
@@ -108,7 +109,7 @@ def compile_literal_expression(
 
     if isinstance(expr.literal, n.Integer):
         return ir.IntegerLiteralExpression(
-            dtype=ir.DType.INT32,
+            dtype=ir.DType.INT64,
             shape=shape,
             value=expr.literal.value,
         )
@@ -614,21 +615,43 @@ def compile_select_table_expression(
     return table
 
 
+def _arrow_type_to_ir_type(arrow_type):
+    return {
+        pa.bool_(): ir.DType.BOOL,
+        pa.int32(): ir.DType.INT32,
+        pa.int64(): ir.DType.INT64,
+        pa.float32(): ir.DType.DOUBLE,
+        pa.float64(): ir.DType.DOUBLE,
+        pa.string(): ir.DType.TEXT,
+        pa.binary(): ir.DType.BYTES,
+    }[arrow_type]
+
+
 @compile_table_expression.register(n.ImportExpression)
 def compile_import_table_expression(
     expr: n.ImportExpression, *, program: ir.Program, context: Context
 ) -> ir.Table:
     location = expr.location.value
-    input = context.inputs[location]
+
+    schema = context.importer.import_schema(location)
+
+    shape = ir.ImportShapeExpression(location=location)
 
     columns = []
-    for src_column in input.columns:
-        column = ir.Column(
-            name=src_column.name,
-            namespaces={None},
-            expression=src_column.expression,
-        )
+    for column_name in schema.names:
+        column_type = schema.field(column_name).type
 
+        column_expr = ir.ImportExpression(
+            dtype=_arrow_type_to_ir_type(column_type),
+            shape=shape,
+            location=location,
+            name=column_name,
+        )
+        column = ir.Column(
+            name=column_name,
+            namespaces={None},
+            expression=column_expr,
+        )
         columns.append(column)
 
     table = ir.Table(
@@ -638,7 +661,7 @@ def compile_import_table_expression(
     )
     program.tables.append(table)
 
-    return context.inputs[expr.location.value]
+    return table
 
 
 @singledispatch
@@ -685,34 +708,10 @@ def compile_export_statement(
 
 
 def compile_ast_to_ir(
-    source: n.StatementList, *, input_types: Dict[str, List[str]]
+    source: n.StatementList, *, importer: Importer
 ) -> ir.Program:
     program = ir.Program()
-    context = Context()
-
-    for location, column_names in input_types.items():
-        shape = ir.ImportShapeExpression(location=location)
-
-        columns = []
-        for name in column_names:
-            column_expr = ir.ImportExpression(
-                dtype=ir.DType.INT32,  # TODO
-                shape=shape,
-                location=location,
-                name=name,
-            )
-            column = ir.Column(
-                name=name,
-                namespaces={None},
-                expression=column_expr,
-            )
-            columns.append(column)
-
-        table = ir.Table(
-            ast_node=None, level=ir.Level.INTERNAL, columns=columns
-        )
-        program.tables.append(table)
-        context.inputs[location] = table
+    context = Context(importer=importer)
 
     for statement in source.statements:
         compile_statement(statement, program=program, context=context)

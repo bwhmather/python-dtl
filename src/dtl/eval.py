@@ -9,6 +9,7 @@ import pyarrow.compute as pac
 
 from dtl import ir as ir
 from dtl.ast_to_ir import compile_ast_to_ir
+from dtl.io import Exporter, Importer, InMemoryExporter, InMemoryImporter
 from dtl.lexer import tokenize
 from dtl.parser import parse
 
@@ -17,7 +18,8 @@ from dtl.parser import parse
 class Context:
     arrays: Dict[ir.ArrayExpression, pa.Array]
     shapes: Dict[ir.ShapeExpression, int]
-    inputs: Dict[str, pa.Table]
+    importer: Importer
+    exporter: Exporter
 
 
 @singledispatch
@@ -31,7 +33,9 @@ def eval_expression(expression: ir.Expression, context: Context) -> None:
 def eval_import_shape_expression(
     expression: ir.ImportShapeExpression, context: Context
 ) -> None:
-    result = len(context.inputs[expression.location])
+    importer = context.importer
+    table = importer.import_table(expression.location)
+    result = len(table)
     context.shapes[expression] = result
 
 
@@ -102,7 +106,9 @@ def eval_bytes_literal_expression(
 def eval_import_expression(
     expression: ir.ImportExpression, context: Context
 ) -> None:
-    result = context.inputs[expression.location][expression.name]
+    importer = context.importer
+    table = importer.import_table(expression.location)
+    result = table[expression.name]
     context.arrays[expression] = result
 
 
@@ -201,16 +207,16 @@ def eval_equal_to_expression(
 
 
 def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
+    importer = InMemoryImporter(inputs)
+    exporter = InMemoryExporter()
+
     ast = parse(tokenize(source))
 
-    program = compile_ast_to_ir(
-        ast,
-        input_types={
-            name: list(table.column_names) for name, table in inputs.items()
-        },
-    )
+    program = compile_ast_to_ir(ast, importer=importer)
 
-    context = Context(shapes={}, arrays={}, inputs=inputs)
+    context = Context(
+        shapes={}, arrays={}, importer=importer, exporter=exporter
+    )
     roots = {
         column.expression
         for table in program.tables
@@ -222,13 +228,15 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
 
     print(context)
 
-    exports = {}
     for name, table in program.exports.items():
-        exports[name] = pa.table(
-            {
-                column.name: context.arrays[column.expression]
-                for column in table.columns
-            }
+        exporter.export_table(
+            name,
+            pa.table(
+                {
+                    column.name: context.arrays[column.expression]
+                    for column in table.columns
+                }
+            ),
         )
 
-    return exports
+    return exporter.results()
