@@ -75,7 +75,7 @@ class TextLiteralExpression(ArrayExpression):
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class BytesLiteralExpression(ArrayExpression):
-    value: str
+    value: bytes
 
 
 @dataclasses.dataclass(frozen=True, eq=False)

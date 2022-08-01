@@ -264,7 +264,7 @@ class JoinClause(Node):
 
 @dataclass(frozen=True)
 class WhereClause(Node):
-    predicate: Optional[Expression]
+    predicate: Expression
 
 
 # === Grouping =================================================================

@@ -42,6 +42,7 @@ def expression_name(expr: n.Expression) -> str:
 @expression_name.register(n.ColumnReferenceExpression)
 def column_reference_expression_name(expr: n.ColumnReferenceExpression) -> str:
     # TODO qualified column names.
+    assert isinstance(expr.name, n.UnqualifiedColumnName)
     return expr.name.column_name
 
 
@@ -84,7 +85,7 @@ def compile_column_reference_expression(
 
         return column.expression
 
-    raise Exception(f"could not find {expr.name.column_name}")
+    raise Exception(f"could not find {name}")
 
 
 @compile_expression.register(n.LiteralExpression)
@@ -424,11 +425,13 @@ def compile_aliased_column_binding(
 def compile_select_table_expression(
     expr: n.SelectExpression, *, program: ir.Program, context: Context
 ) -> ir.Table:
+    column_expr: ir.ArrayExpression
+
     src_table = compile_table_expression(
         expr.source.source.expression, program=program, context=context
     )
     if expr.source.source.alias is not None:
-        src_name = expr.source.source.alias
+        src_name = expr.source.source.alias.name
     else:
         src_name = table_expression_name(expr.source.source.expression)
 
@@ -451,7 +454,7 @@ def compile_select_table_expression(
         )
 
         if join_clause.table.alias is not None:
-            join_name = join_clause.table.alias
+            join_name = join_clause.table.alias.name
         else:
             join_name = table_expression_name(join_clause.table.expression)
 
@@ -509,6 +512,9 @@ def compile_select_table_expression(
         join_table_full = ir.Table(
             ast_node=None, level=ir.Level.INTERNAL, columns=columns
         )
+
+        if not isinstance(join_clause.constraint, n.JoinOnConstraint):
+            raise NotImplementedError()
 
         mask_expression = compile_expression(
             join_clause.constraint.predicate,
@@ -570,7 +576,7 @@ def compile_select_table_expression(
 
     if expr.where is not None:
         condition_expr = compile_expression(
-            expr.where,
+            expr.where.predicate,
             program=program,
             context=context,
             scope=src_table,
@@ -615,7 +621,7 @@ def compile_select_table_expression(
     return table
 
 
-def _arrow_type_to_ir_type(arrow_type):
+def _arrow_type_to_ir_type(arrow_type: pa.DataType) -> ir.DType:
     return {
         pa.bool_(): ir.DType.BOOL,
         pa.int32(): ir.DType.INT32,
