@@ -14,7 +14,6 @@ classifiers = [
     "License :: OSI Approved :: Apache 2.0 License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Compilers",
@@ -23,7 +22,7 @@ classifiers = [
 packages = [{include = "dtl", from = "src"}]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 lalr = "^0.2.0"
 pyarrow = "^8.0.0"
 
