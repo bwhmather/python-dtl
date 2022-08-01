@@ -37,6 +37,12 @@ class ImportShapeExpression(ShapeExpression):
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
+class ArrayExpression(Expression):
+    dtype: DType
+    shape: ShapeExpression
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
 class WhereShapeExpression(ShapeExpression):
     mask: ArrayExpression
 
@@ -45,12 +51,6 @@ class WhereShapeExpression(ShapeExpression):
 class JoinShapeExpression(ShapeExpression):
     shape_a: ShapeExpression
     shape_b: ShapeExpression
-
-
-@dataclasses.dataclass(frozen=True, eq=False)
-class ArrayExpression(Expression):
-    dtype: DType
-    shape: ShapeExpression
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -291,8 +291,13 @@ def _transform_where_expr_children(
     expr: WhereExpression, *, transform: Callable[[Expression], Expression]
 ) -> WhereExpression:
     shape = transform(expr.shape)
+    assert isinstance(shape, ShapeExpression)
+
     source = transform(expr.source)
+    assert isinstance(source, ArrayExpression)
+
     mask = transform(expr.mask)
+    assert isinstance(mask, ArrayExpression)
 
     if shape is expr.shape and source is expr.source and mask is expr.mask:
         return expr
@@ -310,8 +315,13 @@ def _transform_pick_expr_children(
     expr: PickExpression, *, transform: Callable[[Expression], Expression]
 ) -> PickExpression:
     shape = transform(expr.shape)
+    assert isinstance(shape, ShapeExpression)
+
     source = transform(expr.source)
+    assert isinstance(source, ArrayExpression)
+
     indexes = transform(expr.indexes)
+    assert isinstance(indexes, ArrayExpression)
 
     if (
         shape is expr.shape
@@ -333,7 +343,10 @@ def _transform_index_expr_children(
     expr: IndexExpression, *, transform: Callable[[Expression], Expression]
 ) -> IndexExpression:
     shape = transform(expr.shape)
+    assert isinstance(shape, ShapeExpression)
+
     source = transform(expr.source)
+    assert isinstance(source, ArrayExpression)
 
     if shape is expr.shape and source is expr.source:
         return expr
@@ -350,8 +363,13 @@ def _transform_join_left_expr_children(
     expr: JoinLeftExpression, *, transform: Callable[[Expression], Expression]
 ) -> JoinLeftExpression:
     shape = transform(expr.shape)
+    assert isinstance(shape, ShapeExpression)
+
     shape_a = transform(expr.shape_a)
+    assert isinstance(shape_a, ShapeExpression)
+
     shape_b = transform(expr.shape_b)
+    assert isinstance(shape_b, ShapeExpression)
 
     if (
         shape is expr.shape
@@ -373,8 +391,13 @@ def _transform_join_right_expr_children(
     expr: JoinRightExpression, *, transform: Callable[[Expression], Expression]
 ) -> JoinRightExpression:
     shape = transform(expr.shape)
+    assert isinstance(shape, ShapeExpression)
+
     shape_a = transform(expr.shape_a)
+    assert isinstance(shape_a, ShapeExpression)
+
     shape_b = transform(expr.shape_b)
+    assert isinstance(shape_b, ShapeExpression)
 
     if (
         shape is expr.shape
@@ -396,8 +419,13 @@ def _transform_add_expr_children(
     expr: AddExpression, *, transform: Callable[[Expression], Expression]
 ) -> AddExpression:
     shape = transform(expr.shape)
+    assert isinstance(shape, ShapeExpression)
+
     source_a = transform(expr.source_a)
+    assert isinstance(source_a, ArrayExpression)
+
     source_b = transform(expr.source_b)
+    assert isinstance(source_b, ArrayExpression)
 
     if (
         shape is expr.shape
@@ -414,7 +442,9 @@ def _transform_add_expr_children(
     )
 
 
-def map(function, roots):
+def map(
+    function: Callable[[Expression], Expression], roots: list[Expression]
+) -> list[Expression]:
     mapping: Dict[Expression, Expression] = {}
 
     def _transform(expr: Expression) -> Expression:
@@ -578,7 +608,7 @@ def _get_equal_to_expr_dependencies(
     yield expr.source_b
 
 
-def traverse_depth_first(roots):
+def traverse_depth_first(roots: Iterable[Expression]) -> Iterable[Expression]:
     """
     Yields all expression reachable from the list of roots, in depth first
     order, i.e. with dependencies always being yielded before the expressions
