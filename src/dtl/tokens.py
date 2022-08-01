@@ -9,7 +9,7 @@ class Token:
     start: Location
     end: Location
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"t.{type(self).__name__}({self.text!r})"
 
 
