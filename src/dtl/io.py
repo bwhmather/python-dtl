@@ -1,11 +1,7 @@
 import pathlib
-from typing import Any
-from uuid import UUID
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-
-from dtl.types import Location
 
 
 class Importer:
@@ -30,7 +26,7 @@ class InMemoryImporter(Importer):
 class FileSystemImporter(Importer):
     def __init__(self, root: pathlib.Path) -> None:
         self.__root = root
-        self.__cache = {}
+        self.__cache: dict[str, pa.Table] = {}
 
     def import_schema(self, name: str, /) -> pa.Schema:
         return self.import_table(name).schema
@@ -52,14 +48,14 @@ class NoopExporter(Exporter):
 
 
 class InMemoryExporter(Exporter):
-    def __init__(self):
-        self.__tables = {}
+    def __init__(self) -> None:
+        self.__tables: dict[str, pa.Table] = {}
 
     def export_table(self, name: str, table: pa.Table, /) -> None:
         assert name not in self.__tables
         self.__tables[name] = table
 
-    def results(self):
+    def results(self) -> dict[str, pa.Table]:
         return dict(self.__tables)
 
 
