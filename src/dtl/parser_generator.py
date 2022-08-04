@@ -281,7 +281,7 @@ class ParserGenerator(Generic[TT, NT]):
         *,
         action: Callable,
     ) -> lalr.Production:
-        production = lalr.Production(cls, pattern)
+        production = lalr.Production(cls, tuple(pattern))
         self._productions.append(production)
         self._actions[production] = action
         print(production)
