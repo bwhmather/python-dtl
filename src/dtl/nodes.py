@@ -201,7 +201,7 @@ class AliasedColumnBinding(ColumnBinding):
 
 @dataclass(frozen=True)
 class TableBinding(Node):
-    expression: TableExpression
+    expression: "TableExpression"
     alias: Optional[TableName]
 
 
