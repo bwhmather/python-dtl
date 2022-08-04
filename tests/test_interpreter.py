@@ -153,3 +153,30 @@ def test_join_on_less_simple():
             "b": ["THREE", "FOUR"],
         }
     )
+
+
+def test_where_simple():
+    src = """
+    WITH input AS IMPORT 'input';
+    WITH output AS
+        SELECT *
+        FROM input
+        WHERE input.a = input.b;
+    EXPORT output TO 'output';
+    """
+
+    inputs = {
+        "input": pa.table(
+            {
+                "a": [1, 2, 3, 4, 5, 0],
+                "b": [5, 4, 3, 2, 1, 0],
+            }
+        ),
+    }
+    outputs = evaluate(src, inputs)
+    assert outputs["output"] == pa.table(
+        {
+            "a": [3, 0],
+            "b": [3, 0],
+        }
+    )
