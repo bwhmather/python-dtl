@@ -706,11 +706,10 @@ def compile_export_statement(
     stmt_table = ir.Table(
         ast_node=stmt,
         level=ir.Level.EXPORT,
+        export_as=stmt.location.value,
         columns=_strip_namespaces(expr_table.columns),
     )
     program.tables.append(stmt_table)
-
-    program.exports[stmt.location.value] = stmt_table
 
 
 def compile_ast_to_ir(

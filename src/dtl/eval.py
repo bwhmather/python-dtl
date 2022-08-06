@@ -228,9 +228,11 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
 
     print(context)
 
-    for name, table in program.exports.items():
+    for table in program.tables:
+        if not table.export_as:
+            continue
         exporter.export_table(
-            name,
+            table.export_as,
             pa.table(
                 {
                     column.name: context.arrays[column.expression]

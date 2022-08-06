@@ -247,11 +247,15 @@ class Column:
     expression: ArrayExpression
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class Table:
     #: An (optional) reference to the ast node from which this table was derived.
     ast_node: Optional[n.Node]
     level: Level
+
+    #: The name of the file to create if this table is to be exported.  Will be
+    #: None if this is just an intermediate trace table.
+    export_as: Optional[str] = None
 
     columns: List[Column]
 
@@ -262,9 +266,6 @@ class Table:
 @dataclasses.dataclass(frozen=True, eq=False)
 class Program:
     tables: List[Table] = dataclasses.field(init=False, default_factory=list)
-    exports: Dict[str, Table] = dataclasses.field(
-        init=False, default_factory=dict
-    )
 
 
 # === Helpers ==================================================================
