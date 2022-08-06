@@ -446,7 +446,6 @@ def compile_select_table_expression(
     src_table = ir.Table(
         ast_node=None, level=ir.Level.INTERNAL, columns=columns
     )
-    program.tables.append(src_table)
 
     for join_clause in expr.join:
         join_table = compile_table_expression(
@@ -573,6 +572,7 @@ def compile_select_table_expression(
         src_table = ir.Table(
             ast_node=join_clause, level=ir.Level.INTERNAL, columns=columns
         )
+        program.tables.append(src_table)
 
     if expr.where is not None:
         condition_expr = compile_expression(
