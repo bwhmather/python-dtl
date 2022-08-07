@@ -261,17 +261,40 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
     importer = InMemoryImporter(inputs)
     exporter = InMemoryExporter()
 
-    ast = parse(tokenize(source))
+    # Parse source code.
+    tokens = tokenize(source)
+    ast = parse(tokens)
 
+    # Convert to list of tables referencing IR expressions.
     program = compile_ast_to_ir(ast, importer=importer)
 
+    # Optimise joins.
+    # TODO
+
+    # Deduplicate IR expressions.
+    # TODO.
+
+    # Generate initial mappings for all reachable expression pairs.
+    # TODO
+
+    # Merge mappings between expressions that aren't in the roots list.
+    # TODO
+
+    # Name array expressions.
+    # TODO
+
+    # Write trace file.
+    # TODO
+
+    # Convert roots to command list.
     roots: set[ir.Expression] = {
         column.expression
         for table in program.tables
         for column in table.columns
     }
-
     commands = compile_ir_to_cmd(roots)
+
+    # Inject commands to export tables.
     for table in program.tables:
         if table.export_as is None:
             continue
@@ -285,12 +308,16 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
             )
         )
 
-    print(commands)
+    # Inject commands to export trace arrays.
+    # TODO
 
+    # Inject commands to clean up arrays when they are no longer needed.
+    # TODO
+
+    # Evaluate the command list.
     context = Context(
         shapes={}, arrays={}, importer=importer, exporter=exporter
     )
-
     for command in commands:
         eval_command(command, context=context)
 
