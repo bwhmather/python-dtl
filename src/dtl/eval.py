@@ -7,9 +7,10 @@ from typing import Dict
 import pyarrow as pa
 import pyarrow.compute as pac
 
-from dtl import ir as ir
+from dtl import cmd, ir
 from dtl.ast_to_ir import compile_ast_to_ir
 from dtl.io import Exporter, Importer, InMemoryExporter, InMemoryImporter
+from dtl.ir_to_cmd import compile_ir_to_cmd
 from dtl.lexer import tokenize
 from dtl.parser import parse
 
@@ -206,6 +207,56 @@ def eval_equal_to_expression(
     context.arrays[expression] = result
 
 
+@singledispatch
+def eval_command(command: cmd.Command, context: Context) -> None:
+    raise NotImplementedError(
+        f"eval_command not implemented for {type(command).__name__}"
+    )
+
+
+@eval_command.register(cmd.EvaluateArrayCommand)
+def _eval_evaluate_array_command(
+    command: cmd.EvaluateArrayCommand, context: Context
+) -> None:
+    eval_expression(command.expression, context=context)
+
+
+@eval_command.register(cmd.EvaluateShapeCommand)
+def _eval_evaluate_shape_command(
+    command: cmd.EvaluateShapeCommand, context: Context
+) -> None:
+    eval_expression(command.expression, context=context)
+
+
+@eval_command.register(cmd.CollectArrayCommand)
+def _eval_collect_array_command(
+    command: cmd.CollectArrayCommand, context: Context
+) -> None:
+    context.arrays.pop(command.expression)
+
+
+@eval_command.register(cmd.TraceArrayCommand)
+def _eval_trace_array_command(
+    command: cmd.TraceArrayCommand, context: Context
+) -> None:
+    # TODO
+    pass
+
+
+@eval_command.register(cmd.ExportTableCommand)
+def _eval_export_table_command(
+    command: cmd.ExportTableCommand, context: Context
+) -> None:
+    exporter = context.exporter
+    table = pa.table(
+        {
+            name: context.arrays[expression]
+            for name, expression in command.columns.items()
+        }
+    )
+    exporter.export_table(command.name, table)
+
+
 def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
     importer = InMemoryImporter(inputs)
     exporter = InMemoryExporter()
@@ -214,31 +265,33 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
 
     program = compile_ast_to_ir(ast, importer=importer)
 
-    context = Context(
-        shapes={}, arrays={}, importer=importer, exporter=exporter
-    )
-    roots = {
+    roots: set[ir.Expression] = {
         column.expression
         for table in program.tables
         for column in table.columns
     }
 
-    for expression in ir.traverse_depth_first(roots):
-        eval_expression(expression, context=context)
-
-    print(context)
-
+    commands = compile_ir_to_cmd(roots)
     for table in program.tables:
-        if not table.export_as:
+        if table.export_as is None:
             continue
-        exporter.export_table(
-            table.export_as,
-            pa.table(
-                {
-                    column.name: context.arrays[column.expression]
-                    for column in table.columns
-                }
-            ),
+
+        commands.append(
+            cmd.ExportTableCommand(
+                name=table.export_as,
+                columns={
+                    column.name: column.expression for column in table.columns
+                },
+            )
         )
+
+    print(commands)
+
+    context = Context(
+        shapes={}, arrays={}, importer=importer, exporter=exporter
+    )
+
+    for command in commands:
+        eval_command(command, context=context)
 
     return exporter.results()
