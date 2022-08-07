@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 from functools import singledispatch
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, cast
 
 import pyarrow as pa
 
@@ -23,6 +23,20 @@ class ScopeColumn:
     expression: ir.ArrayExpression
 
 
+@dataclasses.dataclass(frozen=True)
+class Scope:
+    columns: list[ScopeColumn]
+
+
+def _qualified_column_name(column: ScopeColumn) -> str:
+    if None in column.namespaces:
+        return column.name
+
+    # TODO there should be a way to figure out the closest namespace.
+    namespace = sorted(cast(set[str], column.namespaces))[0]
+    return f"{namespace}.{column.name}"
+
+
 def _strip_namespaces(columns: List[ScopeColumn]) -> List[ScopeColumn]:
     output = []
     for column in columns:
@@ -36,11 +50,6 @@ def _strip_namespaces(columns: List[ScopeColumn]) -> List[ScopeColumn]:
             )
         )
     return output
-
-
-@dataclasses.dataclass(frozen=True)
-class Scope:
-    columns: list[ScopeColumn]
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -58,8 +67,7 @@ class Context:
     ) -> None:
         columns = [
             ir.Column(
-                name=column.name,
-                namespaces=column.namespaces,
+                name=_qualified_column_name(column),
                 expression=column.expression,
             )
             for column in scope.columns
@@ -70,8 +78,7 @@ class Context:
     def export(self, scope: Scope, /, *, name: str) -> None:
         columns = [
             ir.Column(
-                name=column.name,
-                namespaces=column.namespaces,
+                name=_qualified_column_name(column),
                 expression=column.expression,
             )
             for column in scope.columns

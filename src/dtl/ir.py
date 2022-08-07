@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import enum
 from functools import singledispatch
-from typing import Callable, Dict, Iterable, List, Optional, Set
+from typing import Callable, Dict, Iterable, List, Optional
 
 from dtl import nodes as n
 
@@ -237,13 +237,7 @@ class Level(enum.Enum):
 
 @dataclasses.dataclass(frozen=True)
 class Column:
-    #: The identifier of the column.  Column expressions that are evaluated in
-    #: this table's context can reference this column by `name` prefixed with
-    #: any of the prefix strings in `namespaces`, or unprefixed if `namespaces`
-    #: contains `None`.
     name: str
-    namespaces: Set[Optional[str]]
-
     expression: ArrayExpression
 
 
