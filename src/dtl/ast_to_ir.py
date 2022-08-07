@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 from functools import singledispatch
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 import pyarrow as pa
 
@@ -11,13 +11,25 @@ from dtl import nodes as n
 from dtl.io import Importer
 
 
-def _strip_namespaces(columns: List[ir.Column]) -> List[ir.Column]:
+@dataclasses.dataclass(frozen=True)
+class ScopeColumn:
+    #: The identifier of the column.  Column expressions that are evaluated in
+    #: this table's context can reference this column by `name` prefixed with
+    #: any of the prefix strings in `namespaces`, or unprefixed if `namespaces`
+    #: contains `None`.
+    name: str
+    namespaces: set[Optional[str]]
+
+    expression: ir.ArrayExpression
+
+
+def _strip_namespaces(columns: List[ScopeColumn]) -> List[ScopeColumn]:
     output = []
     for column in columns:
         if None not in column.namespaces:
             raise Exception("compilation error")
         output.append(
-            ir.Column(
+            ScopeColumn(
                 name=column.name,
                 namespaces={None},
                 expression=column.expression,
@@ -26,12 +38,51 @@ def _strip_namespaces(columns: List[ir.Column]) -> List[ir.Column]:
     return output
 
 
+@dataclasses.dataclass(frozen=True)
+class Scope:
+    columns: list[ScopeColumn]
+
+
 @dataclasses.dataclass(frozen=True, eq=False)
 class Context:
     importer: Importer
-    bindings: Dict[str, ir.Table] = dataclasses.field(
+    tables: list[ir.Table] = dataclasses.field(
+        init=False, default_factory=list
+    )
+    bindings: Dict[str, Scope] = dataclasses.field(
         init=False, default_factory=dict
     )
+
+    def trace(
+        self, scope: Scope, /, *, ast_node: n.Node, level: ir.Level
+    ) -> None:
+        columns = [
+            ir.Column(
+                name=column.name,
+                namespaces=column.namespaces,
+                expression=column.expression,
+            )
+            for column in scope.columns
+        ]
+        table = ir.Table(ast_node=ast_node, level=level, columns=columns)
+        self.tables.append(table)
+
+    def export(self, scope: Scope, /, *, name: str) -> None:
+        columns = [
+            ir.Column(
+                name=column.name,
+                namespaces=column.namespaces,
+                expression=column.expression,
+            )
+            for column in scope.columns
+        ]
+        table = ir.Table(
+            ast_node=None,
+            level=ir.Level.EXPORT,
+            export_as=name,
+            columns=columns,
+        )
+        self.tables.append(table)
 
 
 @singledispatch
@@ -50,8 +101,7 @@ def column_reference_expression_name(expr: n.ColumnReferenceExpression) -> str:
 def compile_expression(
     expr: n.Expression,
     *,
-    scope: ir.Table,
-    program: ir.Program,
+    scope: Scope,
     context: Context,
 ) -> ir.ArrayExpression:
     raise NotImplementedError(
@@ -63,8 +113,7 @@ def compile_expression(
 def compile_column_reference_expression(
     expr: n.ColumnReferenceExpression,
     *,
-    scope: ir.Table,
-    program: ir.Program,
+    scope: Scope,
     context: Context,
 ) -> ir.ArrayExpression:
     if isinstance(expr.name, n.UnqualifiedColumnName):
@@ -92,12 +141,11 @@ def compile_column_reference_expression(
 def compile_literal_expression(
     expr: n.LiteralExpression,
     *,
-    scope: ir.Table,
-    program: ir.Program,
+    scope: Scope,
     context: Context,
 ) -> ir.ArrayExpression:
     # TODO it might make more sense to compile literals to a single row array
-    # that is joined with the `scope` table.
+    # that is joined with the scope.
     # TODO handle tables with no columns.
     shape = scope.columns[0].expression.shape
 
@@ -143,20 +191,15 @@ def compile_literal_expression(
 def compile_function_call_expression(
     expr: n.FunctionCallExpression,
     *,
-    scope: ir.Table,
-    program: ir.Program,
+    scope: Scope,
     context: Context,
 ) -> ir.ArrayExpression:
     if expr.name == "add":
         assert len(expr.arguments) == 2
 
         expr_a, expr_b = expr.arguments
-        source_a = compile_expression(
-            expr_a, scope=scope, program=program, context=context
-        )
-        source_b = compile_expression(
-            expr_b, scope=scope, program=program, context=context
-        )
+        source_a = compile_expression(expr_a, scope=scope, context=context)
+        source_b = compile_expression(expr_b, scope=scope, context=context)
 
         if source_a.dtype != source_b.dtype:
             raise Exception("Type error")
@@ -178,16 +221,11 @@ def compile_function_call_expression(
 def compile_add_expression(
     expr: n.AddExpression,
     *,
-    scope: ir.Table,
-    program: ir.Program,
+    scope: Scope,
     context: Context,
 ) -> ir.ArrayExpression:
-    left = compile_expression(
-        expr.left, scope=scope, program=program, context=context
-    )
-    right = compile_expression(
-        expr.right, scope=scope, program=program, context=context
-    )
+    left = compile_expression(expr.left, scope=scope, context=context)
+    right = compile_expression(expr.right, scope=scope, context=context)
 
     if left.dtype != right.dtype:
         raise Exception(
@@ -206,16 +244,11 @@ def compile_add_expression(
 def compile_subtract_expression(
     expr: n.SubtractExpression,
     *,
-    scope: ir.Table,
-    program: ir.Program,
+    scope: Scope,
     context: Context,
 ) -> ir.ArrayExpression:
-    left = compile_expression(
-        expr.left, scope=scope, program=program, context=context
-    )
-    right = compile_expression(
-        expr.right, scope=scope, program=program, context=context
-    )
+    left = compile_expression(expr.left, scope=scope, context=context)
+    right = compile_expression(expr.right, scope=scope, context=context)
 
     if left.dtype != right.dtype:
         raise Exception(
@@ -234,16 +267,11 @@ def compile_subtract_expression(
 def compile_multiply_expression(
     expr: n.MultiplyExpression,
     *,
-    scope: ir.Table,
-    program: ir.Program,
+    scope: Scope,
     context: Context,
 ) -> ir.ArrayExpression:
-    left = compile_expression(
-        expr.left, scope=scope, program=program, context=context
-    )
-    right = compile_expression(
-        expr.right, scope=scope, program=program, context=context
-    )
+    left = compile_expression(expr.left, scope=scope, context=context)
+    right = compile_expression(expr.right, scope=scope, context=context)
 
     if left.dtype != right.dtype:
         raise Exception(
@@ -262,16 +290,11 @@ def compile_multiply_expression(
 def compile_divide_expression(
     expr: n.DivideExpression,
     *,
-    scope: ir.Table,
-    program: ir.Program,
+    scope: Scope,
     context: Context,
 ) -> ir.ArrayExpression:
-    left = compile_expression(
-        expr.left, scope=scope, program=program, context=context
-    )
-    right = compile_expression(
-        expr.right, scope=scope, program=program, context=context
-    )
+    left = compile_expression(expr.left, scope=scope, context=context)
+    right = compile_expression(expr.right, scope=scope, context=context)
 
     if left.dtype != right.dtype:
         raise Exception(
@@ -290,16 +313,11 @@ def compile_divide_expression(
 def compile_equal_to_expression(
     expr: n.EqualToExpression,
     *,
-    scope: ir.Table,
-    program: ir.Program,
+    scope: Scope,
     context: Context,
 ) -> ir.ArrayExpression:
-    left = compile_expression(
-        expr.left, scope=scope, program=program, context=context
-    )
-    right = compile_expression(
-        expr.right, scope=scope, program=program, context=context
-    )
+    left = compile_expression(expr.left, scope=scope, context=context)
+    right = compile_expression(expr.right, scope=scope, context=context)
 
     if left.dtype != right.dtype:
         raise Exception(
@@ -326,8 +344,8 @@ def table_reference_expression_name(expr: n.TableReferenceExpression) -> str:
 
 @singledispatch
 def compile_table_expression(
-    expr: n.TableExpression, *, program: ir.Program, context: Context
-) -> ir.Table:
+    expr: n.TableExpression, *, context: Context
+) -> Scope:
     raise NotImplementedError(
         f"compile_table_expression not implemented for {type(expr).__name__}"
     )
@@ -335,35 +353,37 @@ def compile_table_expression(
 
 @compile_table_expression.register(n.TableReferenceExpression)
 def compile_reference_table_expression(
-    expr: n.TableReferenceExpression, *, program: ir.Program, context: Context
-) -> ir.Table:
-    src_table = context.bindings[expr.name]
+    expr: n.TableReferenceExpression, *, context: Context
+) -> Scope:
+    src_scope = context.bindings[expr.name]
 
-    table = ir.Table(
-        ast_node=expr,
-        level=ir.Level.TABLE_EXPRESSION,
+    result = Scope(
         columns=[
-            ir.Column(
+            ScopeColumn(
                 name=src_column.name,
                 namespaces={None},
                 expression=src_column.expression,
             )
-            for src_column in src_table.columns
+            for src_column in src_scope.columns
         ],
     )
-    program.tables.append(table)
 
-    return table
+    context.trace(
+        result,
+        ast_node=expr,
+        level=ir.Level.TABLE_EXPRESSION,
+    )
+
+    return result
 
 
 @singledispatch
 def compile_column_binding(
     binding: n.ColumnBinding,
     *,
-    scope: ir.Table,
-    program: ir.Program,
+    scope: Scope,
     context: Context,
-) -> Iterable[ir.Column]:
+) -> Iterable[ScopeColumn]:
     raise NotImplementedError()
 
 
@@ -371,12 +391,11 @@ def compile_column_binding(
 def compile_wildcard_column_binding(
     binding: n.WildcardColumnBinding,
     *,
-    scope: ir.Table,
-    program: ir.Program,
+    scope: Scope,
     context: Context,
-) -> Iterable[ir.Column]:
+) -> Iterable[ScopeColumn]:
     for column in scope.columns:
-        yield ir.Column(
+        yield ScopeColumn(
             name=column.name, namespaces={None}, expression=column.expression
         )
 
@@ -385,50 +404,46 @@ def compile_wildcard_column_binding(
 def compile_plain_column_binding(
     binding: n.ImplicitColumnBinding,
     *,
-    scope: ir.Table,
-    program: ir.Program,
+    scope: Scope,
     context: Context,
-) -> Iterable[ir.Column]:
+) -> Iterable[ScopeColumn]:
     column_expr = compile_expression(
         binding.expression,
-        program=program,
         context=context,
         scope=scope,
     )
 
     name = expression_name(binding.expression)
 
-    yield ir.Column(name=name, namespaces={None}, expression=column_expr)
+    yield ScopeColumn(name=name, namespaces={None}, expression=column_expr)
 
 
 @compile_column_binding.register(n.AliasedColumnBinding)
 def compile_aliased_column_binding(
     binding: n.AliasedColumnBinding,
     *,
-    scope: ir.Table,
-    program: ir.Program,
+    scope: Scope,
     context: Context,
-) -> Iterable[ir.Column]:
+) -> Iterable[ScopeColumn]:
     column_expr = compile_expression(
         binding.expression,
-        program=program,
         context=context,
         scope=scope,
     )
 
     name = binding.alias.column_name
 
-    yield ir.Column(name=name, namespaces={None}, expression=column_expr)
+    yield ScopeColumn(name=name, namespaces={None}, expression=column_expr)
 
 
 @compile_table_expression.register(n.SelectExpression)
 def compile_select_table_expression(
-    expr: n.SelectExpression, *, program: ir.Program, context: Context
-) -> ir.Table:
+    expr: n.SelectExpression, *, context: Context
+) -> Scope:
     column_expr: ir.ArrayExpression
 
-    src_table = compile_table_expression(
-        expr.source.source.expression, program=program, context=context
+    src_scope = compile_table_expression(
+        expr.source.source.expression, context=context
     )
     if expr.source.source.alias is not None:
         src_name = expr.source.source.alias.name
@@ -436,20 +451,20 @@ def compile_select_table_expression(
         src_name = table_expression_name(expr.source.source.expression)
 
     columns = []
-    for src_column in src_table.columns:
-        column = ir.Column(
+    for src_column in src_scope.columns:
+        column = ScopeColumn(
             name=src_column.name,
             namespaces={None, src_name, *src_column.namespaces},
             expression=src_column.expression,
         )
         columns.append(column)
-    src_table = ir.Table(
-        ast_node=None, level=ir.Level.INTERNAL, columns=columns
-    )
+    # Not traced because same expression should already have been traced above
+    # in the call to `compile_table_expression`.
+    src_scope = Scope(columns=columns)
 
     for join_clause in expr.join:
-        join_table = compile_table_expression(
-            join_clause.table.expression, program=program, context=context
+        join_scope = compile_table_expression(
+            join_clause.table.expression, context=context
         )
 
         if join_clause.table.alias is not None:
@@ -458,8 +473,8 @@ def compile_select_table_expression(
             join_name = table_expression_name(join_clause.table.expression)
 
         # Build table to act as environment for predicate.
-        shape_a = src_table.columns[0].expression.shape
-        shape_b = join_table.columns[0].expression.shape
+        shape_a = src_scope.columns[0].expression.shape
+        shape_b = join_scope.columns[0].expression.shape
         shape_full = ir.JoinShapeExpression(shape_a=shape_a, shape_b=shape_b)
 
         left_index_full = ir.JoinLeftExpression(
@@ -475,51 +490,48 @@ def compile_select_table_expression(
             shape_b=shape_b,
         )
 
-        # Create a table to use as the context for the predicate.
+        # Create a scope to use as the context for the predicate.
         columns = []
-        for column in src_table.columns:
+        for column in src_scope.columns:
             column_expr = ir.PickExpression(
                 dtype=column.expression.dtype,
                 shape=shape_full,
                 source=column.expression,
                 indexes=left_index_full,
             )
-            new_column = ir.Column(
+            new_column = ScopeColumn(
                 name=column.name,
                 namespaces={*column.namespaces},
                 expression=column_expr,
             )
             columns.append(new_column)
 
-        for column in join_table.columns:
+        for column in join_scope.columns:
             column_expr = ir.PickExpression(
                 dtype=column.expression.dtype,
                 shape=shape_full,
                 source=column.expression,
                 indexes=right_index_full,
             )
-            new_column = ir.Column(
+            new_column = ScopeColumn(
                 name=column.name,
                 namespaces={join_name, *column.namespaces},
                 expression=column_expr,
             )
             columns.append(new_column)
 
-        # Do not trace this table!  We'd like to be able to optimise it away.
-        # For tracing, we should generate a new table containing only the rows
-        # which evaluate to true.
-        join_table_full = ir.Table(
-            ast_node=None, level=ir.Level.INTERNAL, columns=columns
-        )
+        # Do not trace the full join scope!  We'd like to be able to optimise it
+        # away.  For tracing, we should generate a new table containing only the
+        # rows which evaluate to true.
+        join_scope_full = Scope(columns=columns)
 
         if not isinstance(join_clause.constraint, n.JoinOnConstraint):
             raise NotImplementedError()
 
         mask_expression = compile_expression(
             join_clause.constraint.predicate,
-            program=program,
             context=context,
-            scope=join_table_full,
+            scope=join_scope_full,
         )
 
         # Apply the mask to create the output table.
@@ -541,52 +553,49 @@ def compile_select_table_expression(
         )
 
         columns = []
-        for column in src_table.columns:
+        for column in src_scope.columns:
             column_expr = ir.PickExpression(
                 dtype=column.expression.dtype,
                 shape=shape,
                 source=column.expression,
                 indexes=left_index,
             )
-            new_column = ir.Column(
+            new_column = ScopeColumn(
                 name=column.name,
                 namespaces={*column.namespaces},
                 expression=column_expr,
             )
             columns.append(new_column)
 
-        for column in join_table.columns:
+        for column in join_scope.columns:
             column_expr = ir.PickExpression(
                 dtype=column.expression.dtype,
                 shape=shape,
                 source=column.expression,
                 indexes=right_index,
             )
-            new_column = ir.Column(
+            new_column = ScopeColumn(
                 name=column.name,
                 namespaces={join_name, *column.namespaces},
                 expression=column_expr,
             )
             columns.append(new_column)
 
-        src_table = ir.Table(
-            ast_node=join_clause, level=ir.Level.INTERNAL, columns=columns
-        )
-        program.tables.append(src_table)
+        src_scope = Scope(columns=columns)
+        context.trace(src_scope, ast_node=join_clause, level=ir.Level.INTERNAL)
 
     if expr.where is not None:
         condition_expr = compile_expression(
             expr.where.predicate,
-            program=program,
             context=context,
-            scope=src_table,
+            scope=src_scope,
         )
         # TODO inject trace table.
 
         shape = ir.WhereShapeExpression(mask=condition_expr)
 
         columns = []
-        for src_column in src_table.columns:
+        for src_column in src_scope.columns:
             column_expr = ir.WhereExpression(
                 dtype=src_column.expression.dtype,
                 shape=shape,
@@ -594,15 +603,13 @@ def compile_select_table_expression(
                 mask=condition_expr,
             )
 
-            column = ir.Column(
+            column = ScopeColumn(
                 name=src_column.name,
                 namespaces=src_column.namespaces,
                 expression=column_expr,
             )
             columns.append(column)
-        src_table = ir.Table(
-            ast_node=None, level=ir.Level.INTERNAL, columns=columns
-        )
+        src_scope = Scope(columns=columns)
 
     if expr.group_by is not None:
         raise NotImplementedError()
@@ -610,15 +617,15 @@ def compile_select_table_expression(
     columns_by_name = {}
     for column_binding in expr.columns:
         for column in compile_column_binding(
-            column_binding, scope=src_table, program=program, context=context
+            column_binding, scope=src_scope, context=context
         ):
             columns_by_name[column.name] = column
     columns = list(columns_by_name.values())
 
-    table = ir.Table(ast_node=expr, level=ir.Level.STATEMENT, columns=columns)
-    program.tables.append(table)
+    scope = Scope(columns=columns)
+    context.trace(scope, ast_node=expr, level=ir.Level.STATEMENT)
 
-    return table
+    return scope
 
 
 def _arrow_type_to_ir_type(arrow_type: pa.DataType) -> ir.DType:
@@ -635,8 +642,8 @@ def _arrow_type_to_ir_type(arrow_type: pa.DataType) -> ir.DType:
 
 @compile_table_expression.register(n.ImportExpression)
 def compile_import_table_expression(
-    expr: n.ImportExpression, *, program: ir.Program, context: Context
-) -> ir.Table:
+    expr: n.ImportExpression, *, context: Context
+) -> Scope:
     location = expr.location.value
 
     schema = context.importer.import_schema(location)
@@ -653,72 +660,67 @@ def compile_import_table_expression(
             location=location,
             name=column_name,
         )
-        column = ir.Column(
+        column = ScopeColumn(
             name=column_name,
             namespaces={None},
             expression=column_expr,
         )
         columns.append(column)
 
-    table = ir.Table(
-        ast_node=expr,
-        level=ir.Level.TABLE_EXPRESSION,
+    new_scope = Scope(
         columns=columns,
     )
-    program.tables.append(table)
 
-    return table
+    context.trace(new_scope, ast_node=expr, level=ir.Level.TABLE_EXPRESSION)
+
+    return new_scope
 
 
 @singledispatch
-def compile_statement(
-    stmt: n.Statement, *, program: ir.Program, context: Context
-) -> None:
+def compile_statement(stmt: n.Statement, *, context: Context) -> None:
     raise NotImplementedError()
 
 
 @compile_statement.register(n.AssignmentStatement)
 def compile_assignment_statement(
-    stmt: n.AssignmentStatement, *, program: ir.Program, context: Context
+    stmt: n.AssignmentStatement, *, context: Context
 ) -> None:
-    expr_table = compile_table_expression(
-        stmt.expression, program=program, context=context
-    )
+    expr_table = compile_table_expression(stmt.expression, context=context)
 
-    stmt_table = ir.Table(
-        ast_node=stmt,
-        level=ir.Level.STATEMENT,
+    stmt_scope = Scope(
         columns=_strip_namespaces(expr_table.columns),
     )
-    program.tables.append(stmt_table)
+    context.trace(stmt_scope, ast_node=stmt, level=ir.Level.STATEMENT)
 
-    context.bindings[stmt.target.name] = stmt_table
+    context.bindings[stmt.target.name] = stmt_scope
 
 
 @compile_statement.register(n.ExportStatement)
 def compile_export_statement(
-    stmt: n.ExportStatement, *, program: ir.Program, context: Context
+    stmt: n.ExportStatement, *, context: Context
 ) -> None:
-    expr_table = compile_table_expression(
-        stmt.expression, program=program, context=context
-    )
+    expr_table = compile_table_expression(stmt.expression, context=context)
 
-    stmt_table = ir.Table(
-        ast_node=stmt,
-        level=ir.Level.EXPORT,
-        export_as=stmt.location.value,
+    stmt_scope = Scope(
         columns=_strip_namespaces(expr_table.columns),
     )
-    program.tables.append(stmt_table)
+
+    context.trace(
+        stmt_scope,
+        ast_node=stmt,
+        level=ir.Level.EXPORT,
+    )
+    context.export(stmt_scope, name=stmt.location.value)
 
 
 def compile_ast_to_ir(
     source: n.StatementList, *, importer: Importer
 ) -> ir.Program:
-    program = ir.Program()
     context = Context(importer=importer)
 
     for statement in source.statements:
-        compile_statement(statement, program=program, context=context)
+        compile_statement(statement, context=context)
+
+    program = ir.Program(tables=context.tables)
 
     return program

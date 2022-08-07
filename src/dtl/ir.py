@@ -265,7 +265,7 @@ class Table:
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class Program:
-    tables: List[Table] = dataclasses.field(init=False, default_factory=list)
+    tables: List[Table]
 
 
 # === Helpers ==================================================================
