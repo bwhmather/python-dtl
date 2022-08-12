@@ -2,14 +2,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import singledispatch
-from typing import Dict
+from typing import Dict, Iterable
+from uuid import UUID, uuid4
 
 import pyarrow as pa
 import pyarrow.compute as pac
 
+import dtl.manifest
 from dtl import cmd, ir
 from dtl.ast_to_ir import compile_ast_to_ir
-from dtl.io import Exporter, Importer, InMemoryExporter, InMemoryImporter
+from dtl.io import (
+    Exporter,
+    Importer,
+    InMemoryExporter,
+    InMemoryImporter,
+    InMemoryTracer,
+)
 from dtl.ir_to_cmd import compile_ir_to_cmd
 from dtl.lexer import tokenize
 from dtl.parser import parse
@@ -257,48 +265,112 @@ def _eval_export_table_command(
     exporter.export_table(command.name, table)
 
 
+@dataclass
+class Mapping:
+    pass
+
+
+def extract_trace_tables(
+    tables: list[ir.Table], /, *, level: ir.Level
+) -> list[ir.TraceTable]:
+    return [
+        table
+        for table in tables
+        if isinstance(table, ir.TraceTable)  # TODO and table.level >= level
+    ]
+
+
+def extract_export_tables(tables: Iterable[ir.Table], /) -> list[ir.ExportTable]:
+    return [table for table in tables if isinstance(table, ir.ExportTable)]
+
+
+def get_mapping_roots(mappings: Iterable[Mapping], /) -> list[ir.Expression]:
+    if mappings:
+        raise NotImplementedError()
+    return []
+
+
+def get_table_roots(tables: Iterable[ir.Table], /) -> list[ir.Expression]:
+    return list(
+        {column.expression for table in tables for column in table.columns}
+    )
+
+
+def create_manifest(
+    *,
+    source: str,
+    mappings: list[Mapping],
+    snapshots: list[ir.TraceTable],
+    names: dict[ir.Expression, UUID],
+) -> dtl.manifest.Manifest:
+    return dtl.manifest.Manifest(
+        source=source,
+        snapshots=[
+            dtl.manifest.Snapshot(
+                start=table.ast_node.start,
+                end=table.ast_node.end,
+                columns=[
+                    dtl.manifest.Column(
+                        name=column.name, array=names[column.expression]
+                    )
+                    for column in table.columns
+                ],
+            )
+            for table in snapshots
+        ],
+        mappings=[],
+    )
+
+
 def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
     importer = InMemoryImporter(inputs)
     exporter = InMemoryExporter()
+    tracer = InMemoryTracer()
 
-    # Parse source code.
+    # === Parse Source Code ====================================================
     tokens = tokenize(source)
     ast = parse(tokens)
 
-    # Convert to list of tables referencing IR expressions.
+    # === Compile AST to list of tables referencing IR expressions =============
     program = compile_ast_to_ir(ast, importer=importer)
 
+    trace_tables = extract_trace_tables(
+        program.tables, level=ir.Level.COLUMN_EXPRESSION
+    )
+    export_tables = extract_export_tables(program.tables)
+    # all_tables = list(set(*trace_tables, *export_tables))
+
+    # === Optimise IR ==========================================================
     # Optimise joins.
     # TODO
 
     # Deduplicate IR expressions.
     # TODO.
 
+    # After this point, the expression graph is frozen.  We no longer need to
+    # update mappings.
+
+    # === Generate Mappings ====================================================
     # Generate initial mappings for all reachable expression pairs.
     # TODO
 
     # Merge mappings between expressions that aren't in the roots list.
     # TODO
 
-    # Name array expressions.
-    # TODO
+    mappings: list[Mapping] = []
 
-    # Write trace file.
-    # TODO
+    # === Compile Reachable Expressions to Command List ========================
+    # Find reachable expressions.
+    roots: set[ir.Expression] = set()
+    roots.update(get_table_roots(trace_tables))
+    roots.update(get_mapping_roots(mappings))
+    roots.update(get_table_roots(export_tables))
 
-    # Convert roots to command list.
-    roots: set[ir.Expression] = {
-        column.expression
-        for table in program.tables
-        for column in table.columns
-    }
+    # Compile to command list.
     commands = compile_ir_to_cmd(roots)
 
-    # Inject commands to export tables.
-    for table in program.tables:
-        if table.export_as is None:
-            continue
-
+    # === Inject Commands to Export Tables =====================================
+    for table in export_tables:
         commands.append(
             cmd.ExportTableCommand(
                 name=table.export_as,
@@ -308,13 +380,27 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
             )
         )
 
+    # === Setup Tracing ========================================================
+    # Generate identifiers for arrays referenced by trace tables and mappings.
+    names: dict[ir.Expression, UUID] = {}
+    for expression in get_table_roots(trace_tables) + get_mapping_roots(
+        mappings
+    ):
+        names[expression] = uuid4()
+
+    # Write trace manifest.
+    manifest = create_manifest(
+        source=source, snapshots=trace_tables, mappings=mappings, names=names
+    )
+
+    tracer.write_manifest(manifest)
+
     # Inject commands to export trace arrays.
+
+    # === Inject Commands to Collect Arrays After Use ==========================
     # TODO
 
-    # Inject commands to clean up arrays when they are no longer needed.
-    # TODO
-
-    # Evaluate the command list.
+    # === Evaluate the command list ===========================================
     context = Context(
         shapes={}, arrays={}, importer=importer, exporter=exporter
     )

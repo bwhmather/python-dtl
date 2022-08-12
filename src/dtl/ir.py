@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import enum
 from functools import singledispatch
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List
 
 from dtl import nodes as n
 
@@ -243,15 +243,21 @@ class Column:
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class Table:
+    columns: List[Column]
+
+
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class TraceTable(Table):
     #: An (optional) reference to the ast node from which this table was derived.
-    ast_node: Optional[n.Node]
+    ast_node: n.Node
     level: Level
 
+
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class ExportTable(Table):
     #: The name of the file to create if this table is to be exported.  Will be
     #: None if this is just an intermediate trace table.
-    export_as: Optional[str] = None
-
-    columns: List[Column]
+    export_as: str
 
 
 # === Program ==================================================================

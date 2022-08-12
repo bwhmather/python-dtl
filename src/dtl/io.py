@@ -1,7 +1,11 @@
 import pathlib
+from typing import Optional
+from uuid import UUID
 
 import pyarrow as pa
 import pyarrow.parquet as pq
+
+import dtl.manifest
 
 
 class Importer:
@@ -65,3 +69,42 @@ class FilesystemExporter(Exporter):
 
     def export_table(self, name: str, table: pa.Table, /) -> None:
         pq.write_table(table, self.__root / f"{name}.parquet")
+
+
+class Tracer:
+    def write_manifest(self, manifest: dtl.manifest.Manifest, /) -> None:
+        raise NotImplementedError()
+
+    def write_array(self, array_id: UUID, array: pa.Array, /) -> None:
+        raise NotImplementedError()
+
+
+class NoopTracer(Tracer):
+    def write_manifest(self, manifest: dtl.manifest.Manifest, /) -> None:
+        pass
+
+    def write_array(self, array_id: UUID, array: pa.Array, /) -> None:
+        pass
+
+
+class InMemoryTracer(Tracer):
+    def __init__(self) -> None:
+        self.manifest: Optional[dtl.manifest.Manifest] = None
+        self.arrays: dict[UUID, pa.Array] = {}
+
+    def write_manifest(self, manifest: dtl.manifest.Manifest, /) -> None:
+        assert self.manifest is None
+        self.manifest = manifest
+
+    def write_array(self, array_id: UUID, array: pa.Array, /) -> None:
+        assert self.manifest is not None
+        self.arrays[array_id] = array
+
+
+class FilesystemTracer(Tracer):
+    def write_manifest(self, manifest: dtl.manifest.Manifest, /) -> None:
+        dtl.manifest.to_json(manifest)
+
+    def write_array(self, array_id: UUID, array: pa.Array, /) -> None:
+        # table = pa.Table({"values": array})
+        raise NotImplementedError()

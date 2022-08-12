@@ -72,7 +72,7 @@ class Context:
             )
             for column in scope.columns
         ]
-        table = ir.Table(ast_node=ast_node, level=level, columns=columns)
+        table = ir.TraceTable(ast_node=ast_node, level=level, columns=columns)
         self.tables.append(table)
 
     def export(self, scope: Scope, /, *, name: str) -> None:
@@ -83,9 +83,7 @@ class Context:
             )
             for column in scope.columns
         ]
-        table = ir.Table(
-            ast_node=None,
-            level=ir.Level.EXPORT,
+        table = ir.ExportTable(
             export_as=name,
             columns=columns,
         )
