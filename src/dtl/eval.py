@@ -17,6 +17,7 @@ from dtl.io import (
     InMemoryExporter,
     InMemoryImporter,
     InMemoryTracer,
+    Tracer,
 )
 from dtl.ir_to_cmd import compile_ir_to_cmd
 from dtl.lexer import tokenize
@@ -29,6 +30,7 @@ class Context:
     shapes: Dict[ir.ShapeExpression, int]
     importer: Importer
     exporter: Exporter
+    tracer: Tracer
 
 
 @singledispatch
@@ -247,8 +249,9 @@ def _eval_collect_array_command(
 def _eval_trace_array_command(
     command: cmd.TraceArrayCommand, context: Context
 ) -> None:
-    # TODO
-    pass
+    tracer = context.tracer
+    array = context.arrays[command.expression]
+    tracer.write_array(command.uuid, array)
 
 
 @eval_command.register(cmd.ExportTableCommand)
@@ -280,7 +283,9 @@ def extract_trace_tables(
     ]
 
 
-def extract_export_tables(tables: Iterable[ir.Table], /) -> list[ir.ExportTable]:
+def extract_export_tables(
+    tables: Iterable[ir.Table], /
+) -> list[ir.ExportTable]:
     return [table for table in tables if isinstance(table, ir.ExportTable)]
 
 
@@ -381,12 +386,23 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
         )
 
     # === Setup Tracing ========================================================
-    # Generate identifiers for arrays referenced by trace tables and mappings.
+    # Generate identifiers for arrays referenced by trace tables and mappings
+    # and inject commands to export them.
     names: dict[ir.Expression, UUID] = {}
     for expression in get_table_roots(trace_tables) + get_mapping_roots(
         mappings
     ):
+        assert isinstance(expression, ir.ArrayExpression)
+
         names[expression] = uuid4()
+        # TODO these commands should be injected immediately after where the
+        # array is defined.
+        commands.append(
+            cmd.TraceArrayCommand(
+                expression=expression,
+                uuid=names[expression],
+            )
+        )
 
     # Write trace manifest.
     manifest = create_manifest(
@@ -395,14 +411,16 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
 
     tracer.write_manifest(manifest)
 
-    # Inject commands to export trace arrays.
-
     # === Inject Commands to Collect Arrays After Use ==========================
     # TODO
 
     # === Evaluate the command list ===========================================
     context = Context(
-        shapes={}, arrays={}, importer=importer, exporter=exporter
+        shapes={},
+        arrays={},
+        importer=importer,
+        exporter=exporter,
+        tracer=tracer,
     )
     for command in commands:
         eval_command(command, context=context)
