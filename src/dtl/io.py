@@ -1,3 +1,4 @@
+import json
 import pathlib
 from typing import Optional
 from uuid import UUID
@@ -63,7 +64,7 @@ class InMemoryExporter(Exporter):
         return dict(self.__tables)
 
 
-class FilesystemExporter(Exporter):
+class FileSystemExporter(Exporter):
     def __init__(self, root: pathlib.Path) -> None:
         self.__root = root
 
@@ -102,9 +103,20 @@ class InMemoryTracer(Tracer):
 
 
 class FilesystemTracer(Tracer):
+    def __init__(self, root: pathlib.Path) -> None:
+        self.__root = root
+
     def write_manifest(self, manifest: dtl.manifest.Manifest, /) -> None:
-        dtl.manifest.to_json(manifest)
+        self.__root.mkdir()
+
+        trace_path = self.__root / "trace.json"
+        trace_path.write_text(json.dumps(dtl.manifest.to_json(manifest)))
 
     def write_array(self, array_id: UUID, array: pa.Array, /) -> None:
-        # table = pa.Table({"values": array})
-        raise NotImplementedError()
+        self.__root.mkdir()
+
+        array_dir = self.__root / "arrays"
+        array_dir.mkdir()
+
+        array_path = array_dir / f"{array_id}.parquet"
+        pq.write_table(pa.Table({"values": array}), array_path)

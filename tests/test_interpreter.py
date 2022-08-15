@@ -1,6 +1,6 @@
 import pyarrow as pa
 
-from dtl.eval import evaluate
+from dtl import run_simple
 
 
 def test_import_export():
@@ -14,7 +14,7 @@ def test_rename_columns():
     EXPORT output TO 'output';
     """
     inputs = {"input": pa.table({"old_column": [1, 2, 3, 4]})}
-    outputs = evaluate(src, inputs)
+    outputs = run_simple(src, inputs=inputs)
     assert outputs["output"] == pa.table({"new_column": [1, 2, 3, 4]})
 
 
@@ -25,7 +25,7 @@ def test_add_function():
     EXPORT output TO 'output';
     """
     inputs = {"input": pa.table({"a": [1, 2, 3, 4], "b": [3, 4, 5, 6]})}
-    outputs = evaluate(src, inputs)
+    outputs = run_simple(src, inputs=inputs)
     assert outputs["output"] == pa.table(
         {"a": [1, 2, 3, 4], "b": [3, 4, 5, 6], "c": [4, 6, 8, 10]}
     )
@@ -42,7 +42,7 @@ def test_recursive_add_function():
             {"a": [1, 2, 3, 4], "b": [3, 4, 5, 6], "c": [6, 5, 4, 3]}
         )
     }
-    outputs = evaluate(src, inputs)
+    outputs = run_simple(src, inputs=inputs)
     assert outputs["output"] == pa.table(
         {"a": [1, 2, 3, 4], "b": [3, 4, 5, 6], "c": [10, 11, 12, 13]}
     )
@@ -57,7 +57,7 @@ def test_associativity():
 
     inputs = {"input": pa.table({"a": [2, 3], "b": [12, 13], "c": [20, 30]})}
 
-    outputs = evaluate(src, inputs)
+    outputs = run_simple(src, inputs=inputs)
     assert outputs["output"] == pa.table({"r": [-30, -40]})
 
 
@@ -70,7 +70,7 @@ def test_precedence():
 
     inputs = {"input": pa.table({"a": [12, 54], "b": [2, 3], "c": [10, 20]})}
 
-    outputs = evaluate(src, inputs)
+    outputs = run_simple(src, inputs=inputs)
     assert outputs["output"] == pa.table({"r": [32, 114]})
 
 
@@ -99,7 +99,7 @@ def test_join_on_simple():
             }
         ),
     }
-    outputs = evaluate(src, inputs)
+    outputs = run_simple(src, inputs=inputs)
     assert outputs["output"] == pa.table(
         {
             "key": [1, 3, 4],
@@ -116,7 +116,7 @@ def test_add_literal():
     EXPORT output TO 'output';
     """
     inputs = {"input": pa.table({"a": [1, 2, 3]})}
-    outputs = evaluate(src, inputs)
+    outputs = run_simple(src, inputs=inputs)
     assert outputs["output"] == pa.table({"a_plus_one": [2, 3, 4]})
 
 
@@ -145,7 +145,7 @@ def test_join_on_less_simple():
             }
         ),
     }
-    outputs = evaluate(src, inputs)
+    outputs = run_simple(src, inputs=inputs)
     assert outputs["output"] == pa.table(
         {
             "key": [2, 3],
@@ -173,7 +173,7 @@ def test_where_simple():
             }
         ),
     }
-    outputs = evaluate(src, inputs)
+    outputs = run_simple(src, inputs=inputs)
     assert outputs["output"] == pa.table(
         {
             "a": [3, 0],

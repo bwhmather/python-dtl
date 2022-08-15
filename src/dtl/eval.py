@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import singledispatch
-from typing import Dict, Iterable
+from typing import Dict, Iterable, Optional
 from uuid import UUID, uuid4
 
 import pyarrow as pa
@@ -16,7 +16,6 @@ from dtl.io import (
     Importer,
     InMemoryExporter,
     InMemoryImporter,
-    InMemoryTracer,
     Tracer,
 )
 from dtl.ir_to_cmd import compile_ir_to_cmd
@@ -30,7 +29,7 @@ class Context:
     shapes: Dict[ir.ShapeExpression, int]
     importer: Importer
     exporter: Exporter
-    tracer: Tracer
+    tracer: Optional[Tracer]
 
 
 @singledispatch
@@ -250,6 +249,7 @@ def _eval_trace_array_command(
     command: cmd.TraceArrayCommand, context: Context
 ) -> None:
     tracer = context.tracer
+    assert tracer is not None
     array = context.arrays[command.expression]
     tracer.write_array(command.uuid, array)
 
@@ -327,11 +327,14 @@ def create_manifest(
     )
 
 
-def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
-    importer = InMemoryImporter(inputs)
-    exporter = InMemoryExporter()
-    tracer = InMemoryTracer()
-
+def run(
+    source: str,
+    /,
+    *,
+    importer: Importer,
+    exporter: Exporter,
+    tracer: Optional[Tracer],
+) -> None:
     # === Parse Source Code ====================================================
     tokens = tokenize(source)
     ast = parse(tokens)
@@ -386,30 +389,34 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
         )
 
     # === Setup Tracing ========================================================
-    # Generate identifiers for arrays referenced by trace tables and mappings
-    # and inject commands to export them.
-    names: dict[ir.Expression, UUID] = {}
-    for expression in get_table_roots(trace_tables) + get_mapping_roots(
-        mappings
-    ):
-        assert isinstance(expression, ir.ArrayExpression)
+    if tracer is not None:
+        # Generate identifiers for arrays referenced by trace tables and
+        # mappings and inject commands to export them.
+        names: dict[ir.Expression, UUID] = {}
+        for expression in get_table_roots(trace_tables) + get_mapping_roots(
+            mappings
+        ):
+            assert isinstance(expression, ir.ArrayExpression)
 
-        names[expression] = uuid4()
-        # TODO these commands should be injected immediately after where the
-        # array is defined.
-        commands.append(
-            cmd.TraceArrayCommand(
-                expression=expression,
-                uuid=names[expression],
+            names[expression] = uuid4()
+            # TODO these commands should be injected immediately after where the
+            # array is defined.
+            commands.append(
+                cmd.TraceArrayCommand(
+                    expression=expression,
+                    uuid=names[expression],
+                )
             )
+
+        # Write trace manifest.
+        manifest = create_manifest(
+            source=source,
+            snapshots=trace_tables,
+            mappings=mappings,
+            names=names,
         )
 
-    # Write trace manifest.
-    manifest = create_manifest(
-        source=source, snapshots=trace_tables, mappings=mappings, names=names
-    )
-
-    tracer.write_manifest(manifest)
+        tracer.write_manifest(manifest)
 
     # === Inject Commands to Collect Arrays After Use ==========================
     # TODO
@@ -424,5 +431,14 @@ def evaluate(source: str, inputs: Dict[str, pa.Table]) -> Dict[str, pa.Table]:
     )
     for command in commands:
         eval_command(command, context=context)
+
+
+def run_simple(
+    source: str, /, *, inputs: Dict[str, pa.Table]
+) -> Dict[str, pa.Table]:
+    importer = InMemoryImporter(inputs)
+    exporter = InMemoryExporter()
+
+    run(source, importer=importer, exporter=exporter, tracer=None)
 
     return exporter.results()
