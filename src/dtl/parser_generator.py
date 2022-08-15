@@ -211,7 +211,6 @@ class Parser(Generic[TT, NT]):
                 ),
             )
         except lalr.exceptions.ParseError as exc:
-            print(self)
             lookahead_token = exc.lookahead_token
             expected_symbols = exc.expected_symbols
 
@@ -284,7 +283,6 @@ class ParserGenerator(Generic[TT, NT]):
         production = lalr.Production(cls, tuple(pattern))
         self._productions.append(production)
         self._actions[production] = action
-        print(production)
         return production
 
     def register(
@@ -306,7 +304,6 @@ class ParserGenerator(Generic[TT, NT]):
             else:
                 term_type = term
 
-            print(repr(term_type))
             if not issubclass(term_type, (self.node_type, self.token_type)):
                 raise TypeError(
                     f"{term_type} is not a subclass of {self.node_type} or {self.token_type}"
