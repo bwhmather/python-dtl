@@ -27,7 +27,7 @@ lalr = "^0.2.0"
 pyarrow = "^8.0.0"
 
 [tool.poetry.scripts]
-dtl = "dtl._main:main"
+dtl = "dtl.main:main"
 
 [tool.poetry.dev-dependencies]
 black = "^22.6.0"
