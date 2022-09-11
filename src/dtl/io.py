@@ -110,7 +110,9 @@ class FilesystemTracer(Tracer):
         self.__root.mkdir(parents=True, exist_ok=True)
 
         trace_path = self.__root / "trace.json"
-        trace_path.write_text(json.dumps(dtl.manifest.to_json(manifest)))
+        trace_path.write_text(
+            json.dumps(dtl.manifest.to_json(manifest), indent=4)
+        )
 
     def write_array(self, array_id: UUID, array: pa.Array, /) -> None:
         array_dir = self.__root / "arrays"
