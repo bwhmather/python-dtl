@@ -107,16 +107,14 @@ class FilesystemTracer(Tracer):
         self.__root = root
 
     def write_manifest(self, manifest: dtl.manifest.Manifest, /) -> None:
-        self.__root.mkdir()
+        self.__root.mkdir(parents=True, exist_ok=True)
 
         trace_path = self.__root / "trace.json"
         trace_path.write_text(json.dumps(dtl.manifest.to_json(manifest)))
 
     def write_array(self, array_id: UUID, array: pa.Array, /) -> None:
-        self.__root.mkdir()
-
         array_dir = self.__root / "arrays"
-        array_dir.mkdir()
+        array_dir.mkdir(parents=True, exist_ok=True)
 
         array_path = array_dir / f"{array_id}.parquet"
         pq.write_table(pa.Table({"values": array}), array_path)
