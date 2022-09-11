@@ -642,6 +642,10 @@ def _arrow_type_to_ir_type(arrow_type: pa.DataType) -> ir.DType:
         pa.float64(): ir.DType.DOUBLE,
         pa.string(): ir.DType.TEXT,
         pa.binary(): ir.DType.BYTES,
+        pa.timestamp("s"): ir.DType.TIMESTAMP,
+        pa.timestamp("ms"): ir.DType.TIMESTAMP,
+        pa.timestamp("us"): ir.DType.TIMESTAMP,
+        pa.timestamp("ns"): ir.DType.TIMESTAMP,
     }[arrow_type]
 
 
