@@ -17,6 +17,7 @@ class DType(enum.Enum):
     BYTES = "BYTES"
     INDEX = "INDEX"
     TIMESTAMP = "TIMESTAMP"
+    DATE = "DATE"
 
 
 # === Expressions ==============================================================

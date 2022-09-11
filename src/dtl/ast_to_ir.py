@@ -646,6 +646,7 @@ def _arrow_type_to_ir_type(arrow_type: pa.DataType) -> ir.DType:
         pa.timestamp("ms"): ir.DType.TIMESTAMP,
         pa.timestamp("us"): ir.DType.TIMESTAMP,
         pa.timestamp("ns"): ir.DType.TIMESTAMP,
+        pa.date32(): ir.DType.DATE,
     }[arrow_type]
 
 
