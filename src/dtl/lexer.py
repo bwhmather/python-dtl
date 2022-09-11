@@ -227,6 +227,15 @@ class _Tokenizer:
             return t.GreaterThan
 
         if curr == "-":
+            if self._peek() == "-":
+                self._bump()
+
+                # Consume everything up to the end of the line.
+                while self._peek() not in ("\n", None):
+                    self._bump()
+
+                return t.LineComment
+
             if self._peek() == "=":
                 self._bump()
                 return t.MinusEqual
