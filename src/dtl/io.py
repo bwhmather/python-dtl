@@ -119,4 +119,4 @@ class FilesystemTracer(Tracer):
         array_dir.mkdir(parents=True, exist_ok=True)
 
         array_path = array_dir / f"{array_id}.parquet"
-        pq.write_table(pa.Table({"values": array}), array_path)
+        pq.write_table(pa.table({"values": array}), array_path)
