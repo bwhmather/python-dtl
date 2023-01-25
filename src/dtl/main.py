@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 import dtl
-from dtl.io import FileSystemExporter, FileSystemImporter, FilesystemTracer
+from dtl.io import FileSystemExporter, FileSystemImporter, FileSystemTracer
 
 
 def main() -> None:
@@ -39,7 +39,7 @@ def main() -> None:
 
     tracer = None
     if args.trace_dir is not None:
-        tracer = FilesystemTracer(args.trace_dir)
+        tracer = FileSystemTracer(args.trace_dir)
 
     source = args.script.read()
 

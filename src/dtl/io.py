@@ -102,7 +102,7 @@ class InMemoryTracer(Tracer):
         self.arrays[array_id] = array
 
 
-class FilesystemTracer(Tracer):
+class FileSystemTracer(Tracer):
     def __init__(self, root: pathlib.Path) -> None:
         self.__root = root
 
