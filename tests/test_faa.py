@@ -4,48 +4,46 @@ import dtl
 import dtl.io
 
 
-def run(source, /, *, tracer=None):
-    importer = dtl.io.FileSystemImporter(Path("tests/data/faa/"))
-    exporter = dtl.io.InMemoryExporter()
-
-    dtl.run(source, importer=importer, exporter=exporter, tracer=tracer)
-
-
-def test_import_aircraft():
-    run(
+def test_import_aircraft(run_dtl):
+    run_dtl(
         """
         WITH aircraft AS IMPORT 'aircraft';
-        """
+        """,
+        data=Path("tests/data/faa/"),
     )
 
 
-def test_import_aircraft_models():
-    run(
+def test_import_aircraft_models(run_dtl):
+    run_dtl(
         """
         WITH aircraft_models AS IMPORT 'aircraft_models';
-        """
+        """,
+        data=Path("tests/data/faa/"),
     )
 
 
-def test_import_airports():
-    run(
+def test_import_airports(run_dtl):
+    run_dtl(
         """
         WITH airports AS IMPORT 'airports';
-        """
+        """,
+        data=Path("tests/data/faa/"),
     )
 
 
-def test_import_carriers():
-    run(
+def test_import_carriers(run_dtl):
+    run_dtl(
         """
         WITH carriers AS IMPORT 'carriers';
-        """
+        """,
+        data=Path("tests/data/faa/"),
     )
 
 
-def test_import_flights():
-    run(
+def test_import_flights(run_dtl):
+    run_dtl(
         """
         WITH flights AS IMPORT 'flights';
-        """
+        """,
+        data=Path("tests/data/faa/"),
     )
