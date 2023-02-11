@@ -725,12 +725,10 @@ def compile_export_statement(
 
 def compile_ast_to_ir(
     source: n.StatementList, *, importer: Importer
-) -> ir.Program:
+) -> list[ir.Table]:
     context = Context(importer=importer)
 
     for statement in source.statements:
         compile_statement(statement, context=context)
 
-    program = ir.Program(tables=context.tables)
-
-    return program
+    return context.tables

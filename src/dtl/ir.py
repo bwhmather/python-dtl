@@ -37,6 +37,10 @@ class ShapeExpression(Expression):
 class ImportShapeExpression(ShapeExpression):
     location: str
 
+    def __post_init__(self) -> None:
+        assert isinstance(self.location, str)
+        assert len(self.location)
+
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class ArrayExpression(Expression):
@@ -48,36 +52,64 @@ class ArrayExpression(Expression):
 class WhereShapeExpression(ShapeExpression):
     mask: ArrayExpression
 
+    def __post_init__(self) -> None:
+        assert isinstance(self.mask, ArrayExpression)
+        assert self.mask.dtype == DType.BOOL
+
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class JoinShapeExpression(ShapeExpression):
     shape_a: ShapeExpression
     shape_b: ShapeExpression
 
+    def __post_init__(self) -> None:
+        assert isinstance(self.shape_a, ShapeExpression)
+        assert isinstance(self.shape_b, ShapeExpression)
+
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class BooleanLiteralExpression(ArrayExpression):
     value: bool
+
+    def __post_init__(self) -> None:
+        assert self.dtype == DType.BOOL
+        assert isinstance(self.value, bool)
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class IntegerLiteralExpression(ArrayExpression):
     value: int
 
+    def __post_init__(self) -> None:
+        assert self.dtype == DType.INT64
+        assert isinstance(self.value, int)
+
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class FloatLiteralExpression(ArrayExpression):
     value: float
+
+    def __post_init__(self) -> None:
+        assert self.dtype == DType.DOUBLE
+        assert isinstance(self.value, float)
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class TextLiteralExpression(ArrayExpression):
     value: str
 
+    def __post_init__(self) -> None:
+        assert self.dtype == DType.TEXT
+        assert isinstance(self.value, str)
+
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class BytesLiteralExpression(ArrayExpression):
     value: bytes
+
+    def __post_init__(self) -> None:
+        assert self.dtype == DType.BYTES
+        assert isinstance(self.value, bytes)
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -85,17 +117,55 @@ class ImportExpression(ArrayExpression):
     location: str
     name: str
 
+    def __post_init__(self) -> None:
+        assert isinstance(self.shape, ImportShapeExpression)
+        assert (
+            self.shape.location == self.location  # pylint: disable=no-member
+        )
+
+        assert isinstance(self.location, str)
+        assert len(self.location)
+
+        assert isinstance(self.name, str)
+        assert self.name
+
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class WhereExpression(ArrayExpression):
     source: ArrayExpression
     mask: ArrayExpression
 
+    def __post_init__(self) -> None:
+        assert self.dtype == self.source.dtype
+
+        assert isinstance(self.shape, WhereShapeExpression)
+        assert self.shape.mask == self.mask  # pylint: disable=no-member
+
+        assert self.mask.dtype == DType.BOOL
+
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class PickExpression(ArrayExpression):
     source: ArrayExpression
     indexes: ArrayExpression
+
+    def __post_init__(self) -> None:
+        assert self.dtype == self.source.dtype
+        assert self.shape == self.indexes.shape
+
+        assert self.indexes.dtype == DType.INDEX
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class RangeExpression(ArrayExpression):
+    """
+    Evaluates to an array of sequentially increasing indexes.
+    """
+
+    pass
+
+    def __post_init__(self) -> None:
+        assert self.dtype == DType.INDEX
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -106,6 +176,10 @@ class IndexExpression(ArrayExpression):
     """
 
     source: ArrayExpression
+
+    def __post_init__(self) -> None:
+        assert self.dtype == DType.INDEX
+        assert self.shape == self.source.shape
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -118,6 +192,13 @@ class JoinLeftExpression(ArrayExpression):
     shape_a: ShapeExpression
     shape_b: ShapeExpression
 
+    def __post_init__(self) -> None:
+        assert self.dtype == DType.INDEX
+
+        assert isinstance(self.shape, JoinShapeExpression)
+        assert self.shape.shape_a == self.shape_a  # pylint: disable=no-member
+        assert self.shape.shape_b == self.shape_b  # pylint: disable=no-member
+
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class JoinRightExpression(ArrayExpression):
@@ -128,6 +209,13 @@ class JoinRightExpression(ArrayExpression):
 
     shape_a: ShapeExpression
     shape_b: ShapeExpression
+
+    def __post_init__(self) -> None:
+        assert self.dtype == DType.INDEX
+
+        assert isinstance(self.shape, JoinShapeExpression)
+        assert self.shape.shape_a == self.shape_a  # pylint: disable=no-member
+        assert self.shape.shape_b == self.shape_b  # pylint: disable=no-member
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -156,6 +244,18 @@ class JoinLeftEqualExpression(ArrayExpression):
     right: ArrayExpression
     right_index: ArrayExpression
 
+    def __post_init__(self) -> None:
+        assert self.dtype == DType.INDEX
+
+        assert isinstance(self.shape, JoinShapeExpression)
+        assert self.shape.shape_a == self.left  # pylint: disable=no-member
+        assert self.shape.shape_b == self.right  # pylint: disable=no-member
+
+        assert self.left.dtype == self.right.dtype
+
+        assert self.right_index.dtype == DType.INDEX
+        assert self.right_index.shape == self.right.shape
+
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class JoinRightEqualExpression(ArrayExpression):
@@ -183,11 +283,30 @@ class JoinRightEqualExpression(ArrayExpression):
     right: ArrayExpression
     right_index: ArrayExpression
 
+    def __post_init__(self) -> None:
+        assert self.dtype == DType.INDEX
+
+        assert isinstance(self.shape, JoinShapeExpression)
+        assert self.shape.shape_a == self.left  # pylint: disable=no-member
+        assert self.shape.shape_b == self.right  # pylint: disable=no-member
+
+        assert self.left.dtype == self.right.dtype
+
+        assert self.right_index.dtype == DType.INDEX
+        assert self.right_index.shape == self.right.shape
+
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class AddExpression(ArrayExpression):
     source_a: ArrayExpression
     source_b: ArrayExpression
+
+    def __post_init__(self) -> None:
+        assert self.dtype == self.source_a.dtype
+        assert self.dtype == self.source_b.dtype
+
+        assert self.shape == self.source_a.shape
+        assert self.shape == self.source_b.shape
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -195,11 +314,25 @@ class SubtractExpression(ArrayExpression):
     source_a: ArrayExpression
     source_b: ArrayExpression
 
+    def __post_init__(self) -> None:
+        assert self.dtype == self.source_a.dtype
+        assert self.dtype == self.source_b.dtype
+
+        assert self.shape == self.source_a.shape
+        assert self.shape == self.source_b.shape
+
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class MultiplyExpression(ArrayExpression):
     source_a: ArrayExpression
     source_b: ArrayExpression
+
+    def __post_init__(self) -> None:
+        assert self.dtype == self.source_a.dtype
+        assert self.dtype == self.source_b.dtype
+
+        assert self.shape == self.source_a.shape
+        assert self.shape == self.source_b.shape
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -207,11 +340,26 @@ class DivideExpression(ArrayExpression):
     source_a: ArrayExpression
     source_b: ArrayExpression
 
+    def __post_init__(self) -> None:
+        assert self.dtype == self.source_a.dtype
+        assert self.dtype == self.source_b.dtype
+
+        assert self.shape == self.source_a.shape
+        assert self.shape == self.source_b.shape
+
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class EqualToExpression(ArrayExpression):
     source_a: ArrayExpression
     source_b: ArrayExpression
+
+    def __post_init__(self) -> None:
+        assert self.dtype == DType.BOOL
+
+        assert self.shape == self.source_a.shape
+        assert self.shape == self.source_b.shape
+
+        assert self.source_a.dtype == self.source_b.dtype
 
 
 assert AddExpression.__hash__ is Expression.__hash__
@@ -260,14 +408,6 @@ class ExportTable(Table):
     #: The name of the file to create if this table is to be exported.  Will be
     #: None if this is just an intermediate trace table.
     export_as: str
-
-
-# === Program ==================================================================
-
-
-@dataclasses.dataclass(frozen=True, eq=False)
-class Program:
-    tables: List[Table]
 
 
 # === Helpers ==================================================================
@@ -339,6 +479,19 @@ def _transform_pick_expr_children(
         source=source,
         indexes=indexes,
     )
+
+
+@_transform_children.register(RangeExpression)
+def _transform_range_expr_children(
+    expr: RangeExpression, *, transform: Callable[[Expression], Expression]
+) -> RangeExpression:
+    shape = transform(expr.shape)
+    assert isinstance(shape, ShapeExpression)
+
+    if shape is expr.shape:
+        return expr
+
+    return RangeExpression(dtype=expr.dtype, shape=shape)
 
 
 @_transform_children.register(IndexExpression)
@@ -548,6 +701,13 @@ def _get_where_expr_dependencies(
 def _get_pick_expr_dependencies(expr: PickExpression) -> Iterable[Expression]:
     yield expr.indexes
     yield expr.source
+
+
+@dependencies.register(RangeExpression)
+def _get_range_expr_dependencies(
+    expr: RangeExpression,
+) -> Iterable[Expression]:
+    yield expr.shape
 
 
 @dependencies.register(IndexExpression)

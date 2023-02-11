@@ -20,6 +20,14 @@ from dtl.io import (
 )
 from dtl.ir_to_cmd import compile_ir_to_cmd
 from dtl.lexer import tokenize
+from dtl.mappings import (
+    IdentityMapping,
+    ManyToManyMapping,
+    ManyToOneMapping,
+    Mapping,
+    OneToManyMapping,
+    generate_mappings,
+)
 from dtl.parser import parse
 
 
@@ -139,6 +147,16 @@ def eval_pick_expression(
     source = context.arrays[expression.source]
     indexes = context.arrays[expression.indexes]
     result = pac.take(source, indexes)
+    context.arrays[expression] = result
+
+
+@eval_expression.register(ir.RangeExpression)
+def eval_range_expression(
+    expression: ir.RangeExpression, context: Context
+) -> None:
+    assert expression.dtype == ir.DType.INDEX  # TODO use me!
+    shape = context.shapes[expression.shape]
+    result = pa.array(range(shape), type=pa.int64())
     context.arrays[expression] = result
 
 
@@ -268,19 +286,19 @@ def _eval_export_table_command(
     exporter.export_table(command.name, table)
 
 
-@dataclass
-class Mapping:
-    pass
-
-
-def extract_trace_tables(
+def filter_tables(
     tables: list[ir.Table], /, *, level: ir.Level
-) -> list[ir.TraceTable]:
+) -> list[ir.Table]:
     return [
         table
         for table in tables
-        if isinstance(table, ir.TraceTable)  # TODO and table.level >= level
+        if not isinstance(table, ir.TraceTable)
+        or True  # TODO table.level >= level
     ]
+
+
+def extract_trace_tables(tables: list[ir.Table], /) -> list[ir.TraceTable]:
+    return [table for table in tables if isinstance(table, ir.TraceTable)]
 
 
 def extract_export_tables(
@@ -289,15 +307,120 @@ def extract_export_tables(
     return [table for table in tables if isinstance(table, ir.ExportTable)]
 
 
+@singledispatch
+def _get_mapping_roots(mappings: Mapping, /) -> Iterable[ir.Expression]:
+    raise NotImplementedError()
+
+
+@_get_mapping_roots.register(IdentityMapping)
+def _get_identity_mapping_roots(
+    mapping: IdentityMapping, /
+) -> Iterable[ir.Expression]:
+    return
+    yield
+
+
+@_get_mapping_roots.register(ManyToOneMapping)
+def _get_many_to_one_mapping_roots(
+    mapping: ManyToOneMapping, /
+) -> Iterable[ir.Expression]:
+    yield mapping.tgt_index
+
+
+@_get_mapping_roots.register(OneToManyMapping)
+def _get_one_to_many_mapping_roots(
+    mapping: OneToManyMapping, /
+) -> Iterable[ir.Expression]:
+    yield mapping.src_index
+
+
+@_get_mapping_roots.register(ManyToManyMapping)
+def _get_many_to_many_mapping_roots(
+    mapping: ManyToManyMapping, /
+) -> Iterable[ir.Expression]:
+    yield mapping.src_index
+    yield mapping.tgt_index
+
+
 def get_mapping_roots(mappings: Iterable[Mapping], /) -> list[ir.Expression]:
-    if mappings:
-        raise NotImplementedError()
-    return []
+    expressions: set[ir.Expression] = set()
+    for mapping in mappings:
+        expressions.update(_get_mapping_roots(mapping))
+    return list(expressions)
 
 
 def get_table_roots(tables: Iterable[ir.Table], /) -> list[ir.Expression]:
     return list(
         {column.expression for table in tables for column in table.columns}
+    )
+
+
+def _manifest_snapshot_from_trace_table(
+    table: ir.TraceTable, /, *, names: dict[ir.Expression, UUID]
+) -> dtl.manifest.Snapshot:
+    return dtl.manifest.Snapshot(
+        start=table.ast_node.start,
+        end=table.ast_node.end,
+        columns=[
+            dtl.manifest.Column(
+                name=column.name, array=names[column.expression]
+            )
+            for column in table.columns
+        ],
+    )
+
+
+@singledispatch
+def _manifest_mapping_from_mapping(
+    mapping: Mapping, /, *, names: dict[ir.Expression, UUID]
+) -> dtl.manifest.Mapping:
+    raise NotImplementedError()
+
+
+@_manifest_mapping_from_mapping.register(IdentityMapping)
+def _manifest_mapping_from_identity_mapping(
+    mapping: IdentityMapping, /, *, names: dict[ir.Expression, UUID]
+) -> dtl.manifest.Mapping:
+    return dtl.manifest.IdentityMapping(
+        src_array=names[mapping.src],
+        tgt_array=names[mapping.tgt],
+    )
+
+
+@_manifest_mapping_from_mapping.register(ManyToOneMapping)
+def _manifest_mapping_many_to_one_mapping(
+    mapping: ManyToOneMapping, /, *, names: dict[ir.Expression, UUID]
+) -> dtl.manifest.Mapping:
+
+    return dtl.manifest.ManyToOneMapping(
+        src_array=names[mapping.src],
+        tgt_array=names[mapping.tgt],
+        tgt_index_array=names[mapping.tgt_index],
+    )
+
+
+@_manifest_mapping_from_mapping.register(OneToManyMapping)
+def _manifest_mapping_from_one_to_many_mapping(
+    mapping: OneToManyMapping, /, *, names: dict[ir.Expression, UUID]
+) -> dtl.manifest.Mapping:
+
+    return dtl.manifest.OneToManyMapping(
+        src_array=names[mapping.src],
+        tgt_array=names[mapping.tgt],
+        src_index_array=names[mapping.src_index],
+    )
+
+
+@_manifest_mapping_from_mapping.register(ManyToManyMapping)
+def _manifest_mapping_from_many_to_many_mapping(
+    mapping: ManyToManyMapping, /, *, names: dict[ir.Expression, UUID]
+) -> dtl.manifest.Mapping:
+
+    return dtl.manifest.ManyToManyMapping(
+        src_array=names[mapping.src],
+        tgt_array=names[mapping.tgt],
+        src_index_array=names[mapping.src_index],
+        tgt_index_array=names[mapping.tgt_index],
     )
 
 
@@ -311,19 +434,13 @@ def create_manifest(
     return dtl.manifest.Manifest(
         source=source,
         snapshots=[
-            dtl.manifest.Snapshot(
-                start=table.ast_node.start,
-                end=table.ast_node.end,
-                columns=[
-                    dtl.manifest.Column(
-                        name=column.name, array=names[column.expression]
-                    )
-                    for column in table.columns
-                ],
-            )
+            _manifest_snapshot_from_trace_table(table, names=names)
             for table in snapshots
         ],
-        mappings=[],
+        mappings=[
+            _manifest_mapping_from_mapping(mapping, names=names)
+            for mapping in mappings
+        ],
     )
 
 
@@ -340,13 +457,14 @@ def run(
     ast = parse(tokens)
 
     # === Compile AST to list of tables referencing IR expressions =============
-    program = compile_ast_to_ir(ast, importer=importer)
+    tables = compile_ast_to_ir(ast, importer=importer)
+    tables = filter_tables(tables, level=ir.Level.COLUMN_EXPRESSION)
 
-    trace_tables = extract_trace_tables(
-        program.tables, level=ir.Level.COLUMN_EXPRESSION
+    # === Generate Mappings ====================================================
+    # Generate initial mappings for all reachable expression pairs.
+    mappings = list(
+        generate_mappings(get_table_roots(extract_trace_tables(tables)))
     )
-    export_tables = extract_export_tables(program.tables)
-    # all_tables = list(set(*trace_tables, *export_tables))
 
     # === Optimise IR ==========================================================
     # Optimise joins.
@@ -358,27 +476,17 @@ def run(
     # After this point, the expression graph is frozen.  We no longer need to
     # update mappings.
 
-    # === Generate Mappings ====================================================
-    # Generate initial mappings for all reachable expression pairs.
-    # TODO
-
-    # Merge mappings between expressions that aren't in the roots list.
-    # TODO
-
-    mappings: list[Mapping] = []
-
     # === Compile Reachable Expressions to Command List ========================
     # Find reachable expressions.
     roots: set[ir.Expression] = set()
-    roots.update(get_table_roots(trace_tables))
+    roots.update(get_table_roots(tables))
     roots.update(get_mapping_roots(mappings))
-    roots.update(get_table_roots(export_tables))
 
     # Compile to command list.
     commands = compile_ir_to_cmd(roots)
 
     # === Inject Commands to Export Tables =====================================
-    for table in export_tables:
+    for table in extract_export_tables(tables):
         commands.append(
             cmd.ExportTableCommand(
                 name=table.export_as,
@@ -390,6 +498,8 @@ def run(
 
     # === Setup Tracing ========================================================
     if tracer is not None:
+        trace_tables = extract_trace_tables(tables)
+
         # Generate identifiers for arrays referenced by trace tables and
         # mappings and inject commands to export them.
         names: dict[ir.Expression, UUID] = {}
